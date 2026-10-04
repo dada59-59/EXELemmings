@@ -1,0 +1,1895 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>EXELTILE - editeur de tuiles et de niveaux EXL100</title>
+<style>
+  :root{
+    --bg:#14161a; --panel:#1d2027; --panel2:#242832; --line:#333947;
+    --fg:#e6e8ec; --dim:#9aa3b2; --accent:#5aa9e6; --warn:#e6a15a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;
+       background:var(--bg);color:var(--fg)}
+  header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);
+         display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.02em}
+  .sub{color:var(--dim);font-size:12px}
+  .tabs{display:flex;gap:4px;margin-left:auto}
+  .tab{padding:6px 14px;background:var(--panel2);border:1px solid var(--line);
+       border-radius:4px;cursor:pointer;font-size:13px}
+  .tab.on{background:var(--accent);color:#07121c;border-color:var(--accent);font-weight:600}
+  main{padding:16px;display:none}
+  main.on{display:block}
+  .row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px}
+  .card h2{font-size:12px;margin:0 0 10px;color:var(--dim);font-weight:600;
+           text-transform:uppercase;letter-spacing:.06em}
+  canvas{display:block;image-rendering:pixelated;background:#000;cursor:crosshair}
+  button{background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+         border-radius:4px;padding:6px 12px;cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#07121c;border-color:var(--accent);font-weight:600}
+  label{font-size:12px;color:var(--dim);display:block;margin-bottom:4px}
+  input[type=text],input[type=number],select{background:#0e1014;color:var(--fg);
+    border:1px solid var(--line);border-radius:4px;padding:5px 8px;font-size:13px}
+  .pal{display:grid;grid-template-columns:repeat(4,34px);gap:5px}
+  .sw{width:34px;height:28px;border:2px solid #000;border-radius:3px;cursor:pointer;
+      position:relative}
+  .sw.on{border-color:var(--fg)}
+  .sw span{position:absolute;bottom:1px;right:3px;font-size:9px;color:#fff;
+           text-shadow:0 0 3px #000,0 0 2px #000}
+  .tiles{display:flex;flex-wrap:wrap;gap:4px;max-width:420px;
+         max-height:340px;overflow-y:auto;padding:2px}
+  .tw{border:2px solid transparent;border-radius:3px;cursor:pointer;padding:1px;
+      background:#0b0d10;position:relative}
+  .tw.on{border-color:var(--accent)}
+  .tw canvas{width:32px;height:40px}
+  .tw b{position:absolute;top:0;left:2px;font-size:8px;color:var(--dim)}
+  .tw i{position:absolute;bottom:0;right:2px;font-size:8px;font-style:normal;color:#9ad;
+        text-shadow:0 0 2px #000,0 0 2px #000}
+  .tw i.zero{color:#f66}
+  .tw i.sys{color:var(--accent)}
+  .props{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px}
+  .props label{display:flex;align-items:center;gap:5px;color:var(--fg);font-size:12px;
+               margin:0;cursor:pointer}
+  textarea{width:100%;height:300px;background:#0e1014;color:#cfe3f5;border:1px solid var(--line);
+           border-radius:4px;padding:10px;font:12px/1.4 ui-monospace,Consolas,monospace;
+           white-space:pre;overflow:auto}
+  .hint{color:var(--dim);font-size:12px;margin-top:8px}
+  .warn{color:var(--warn)}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .scr{display:flex;gap:4px}
+  .scr button.on{background:var(--accent);color:#07121c;font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>EXELTILE</h1>
+  <span class="sub">tuiles 8&times;10 &middot; 8 couleurs &middot; EXL100 / TMS3556</span>
+  <div class="tabs">
+    <div class="tab on" data-t="tiles">Tuiles</div>
+    <div class="tab" data-t="level">Niveau</div>
+    <div class="tab" data-t="export">Export</div>
+  </div>
+</header>
+
+<div class="bar" id="projBar" style="padding:8px 16px;margin:0;background:var(--panel2);border-bottom:1px solid var(--line)">
+  <button id="undoBtn" title="Annuler (Ctrl+Z)">&#8630; Annuler</button>
+  <button id="redoBtn" title="R&eacute;tablir (Ctrl+Y ou Ctrl+Maj+Z)" style="margin-right:14px">&#8631; R&eacute;tablir</button>
+  <span class="sub">Niveau</span>
+  <select id="lvSel"></select>
+  <input type="text" id="lvName" style="width:130px" placeholder="nom du niveau">
+  <button id="lvNew" title="Nouveau niveau vierge, avec le theme du niveau courant">+ Nouveau</button>
+  <button id="lvDup">Dupliquer</button>
+  <button id="lvUp" title="Avancer dans l'ordre du jeu">&#9650;</button>
+  <button id="lvDown" title="Reculer dans l'ordre du jeu">&#9660;</button>
+  <button id="lvDel">Supprimer</button>
+  <span class="sub" style="margin-left:18px">Th&egrave;me du niveau</span>
+  <select id="thSel"></select>
+  <button id="thNew" title="Nouveau theme : copie du theme courant, attribuee a ce niveau">+ Nouveau th&egrave;me</button>
+  <button id="thRen">Renommer</button>
+  <button id="thDel" title="Supprime les themes qu'aucun niveau n'utilise">Suppr. th&egrave;mes inutilis&eacute;s</button>
+  <span class="sub" id="thInfo"></span>
+</div>
+
+<!-- ================= TUILES ================= -->
+<main id="m-tiles" class="on">
+<div class="row">
+
+  <div class="card">
+    <h2>Dessin &mdash; tuile <span id="tIdx">0</span></h2>
+    <canvas id="edit" width="320" height="400"></canvas>
+    <div class="bar" style="margin:10px 0 0">
+      <button id="tClear">Effacer</button>
+      <button id="tFill">Remplir</button>
+      <button id="tCopy">Copier</button>
+      <button id="tPaste">Coller</button>
+      <button id="tMirror" title="Cree une copie avec les pixels inverses horizontalement (colonne 0 <-> 7, etc.) -- utile pour une marche d'escalier qui doit exister dans les deux sens de construction.">Dupliquer en miroir</button>
+    </div>
+    <div class="hint">Clic gauche : poser la couleur &middot; clic droit : couleur 0 (noir)</div>
+    <div class="hint" style="margin-top:4px">Bande rouge = colonnes 3-4, les
+      seules sondees par la marche au pixel pres (mixpix).<br>Elles doivent
+      rester pleines de facon continue jusqu'en bas a partir d'un seuil ;
+      <br>le reste de la tuile est purement decoratif.</div>
+    <div id="probeWarn" style="font-size:13px;font-weight:600;margin-top:4px"></div>
+  </div>
+
+  <div class="card">
+    <h2>Palette</h2>
+    <div class="pal" id="pal"></div>
+    <div class="hint" style="margin-top:10px">
+      Index = (B&lt;&lt;2)|(G&lt;&lt;1)|R<br>
+      3 plans s&eacute;par&eacute;s en VRAM
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Jeu de tuiles
+      <select id="tOrder" style="margin-left:10px;font-size:11px">
+        <option value="use">syst&egrave;me, puis du plus au moins utilis&eacute;</option>
+        <option value="num">par num&eacute;ro</option>
+      </select></h2>
+    <div class="hint" style="margin:-4px 0 6px">en bas &agrave; droite : nombre d'utilisations dans tous les niveaux
+      de ce th&egrave;me (<span style="color:#f66">0</span> = inutilis&eacute;e,
+      <span style="color:var(--accent)">sys</span> = pos&eacute;e par le jeu, &agrave; garder)</div>
+    <div class="tiles" id="tiles"></div>
+    <div class="bar" style="margin-top:10px">
+      <button id="tAdd">+ Ajouter</button>
+      <span class="sub"><span id="tCount">0</span> / 256</span>
+      <button id="tCleanup" style="margin-left:10px" title="Supprime les tuiles qu'aucun ecran ne reference plus -- utile apres plusieurs imports d'image successifs, qui laissent le lot precedent inutilise mais toujours exporte. La tuile 0 (vide) est toujours conservee.">Nettoyer les tuiles inutilis&eacute;es</button>
+      <button id="tDedup" style="margin-left:6px" title="Tuiles aux pixels identiques : garde la premiere, renumerote les cartes, supprime les autres. Les tuiles systeme (marches, sortie) ne sont jamais fusionnees.">Fusionner les doublons</button>
+    </div>
+    <h2 style="margin-top:14px">Propri&eacute;t&eacute;s de la tuile</h2>
+    <label>Nom</label>
+    <input type="text" id="pName" style="width:200px" placeholder="terre, acier, ciel...">
+    <div class="props">
+      <label><input type="checkbox" id="pSolid"> Solide (porte un lemming)</label>
+      <label><input type="checkbox" id="pDig"> Destructible</label>
+    </div>
+    <div class="hint">
+      Une tuile ni solide ni destructible = vide (ciel).<br>
+      Solide sans destructible = acier.
+    </div>
+    <div class="bar" style="margin:10px 0 0">
+      <button id="pLocate" title="Met en evidence, dans l'onglet Niveau, toutes les cases qui utilisent cette tuile">Localiser dans le niveau</button>
+    </div>
+    <h2 style="margin-top:14px">Remplacer cette tuile</h2>
+    <div class="bar" style="margin:0">
+      <span class="sub">partout par la tuile n&deg;</span>
+      <input type="number" id="pRepl" min="0" style="width:60px">
+      <button id="pReplBtn">Remplacer</button>
+    </div>
+    <div class="hint">dans toutes les cartes des niveaux de ce th&egrave;me.<br>
+      Elle devient inutilis&eacute;e : &laquo; Nettoyer &raquo; la supprime ensuite.</div>
+  </div>
+
+</div>
+
+<div class="row">
+  <div class="card">
+    <h2>Importer depuis une image</h2>
+    <button id="tpBtn">Choisir une image...</button>
+    <input type="file" id="tpFile" accept="image/*" style="display:none">
+    <div id="tpPanel" style="display:none;margin-top:10px">
+      <canvas id="tpCanvas" width="480" height="320" tabindex="0"
+        style="cursor:crosshair;outline:none;border:1px solid #444;background:#000"></canvas>
+      <div class="bar" style="margin-top:8px">
+        <button id="tpZoomOut">&minus;</button>
+        <span class="sub">Zoom : <span id="tpZoomLbl">4</span>&times;</span>
+        <button id="tpZoomIn">+</button>
+        <button id="tpCapture" style="margin-left:16px">Capturer dans la tuile courante</button>
+      </div>
+      <div class="hint">
+        Clic gauche : centre la s&eacute;lection 8&times;10 sur ce point &middot;
+        clic droit + glisser : d&eacute;place la vue &middot;
+        fl&egrave;ches (canevas actif) : ajuste d'un pixel
+      </div>
+    </div>
+  </div>
+</div>
+</main>
+
+<!-- ================= NIVEAU ================= -->
+<main id="m-level">
+<div class="bar">
+  <span class="sub">&Eacute;cran :</span>
+  <div class="scr" id="scrBtns"></div>
+  <label style="margin:0 0 0 10px">Nombre d'&eacute;crans</label>
+  <input type="number" id="nScr" min="1" max="3" value="3" style="width:60px">
+  <button id="lClear" style="margin-left:10px">Vider l'&eacute;cran</button>
+  <button id="lFillRow">Remplir sous le curseur</button>
+  <button id="lSpawnBtn" style="margin-left:10px" title="Le point ou les lemmings tombent au debut du niveau -- une position, pas une tuile speciale : elle reste valable quelle que soit la tuile qui s'y trouve dessous.">Placer le point de d&eacute;part</button>
+  <span class="sub" id="lSpawnInfo"></span>
+  <span class="sub" id="lHlInfo" style="margin-left:10px;color:#f5f"></span>
+  <button id="lHlOff" style="display:none">Masquer</button>
+  <button id="lPickBtn" style="margin-left:10px" title="Clique une case de la carte : sa tuile devient la tuile active (a poser ailleurs, ou a modifier dans l'onglet Tuiles).">Identifier une tuile</button>
+  <button id="lImportBtn" style="margin-left:10px" title="Charge une image (idealement deja en 8 couleurs, 320x200 par ecran) et la redecoupe en tuiles 8x10 -- reutilise les tuiles existantes quand un motif correspond deja, en cree de nouvelles sinon.">Importer une image...</button>
+  <input type="file" id="lImportFile" accept="image/*" style="display:none">
+</div>
+<div class="hint" id="lImportStatus" style="margin:4px 0 0 0"></div>
+<div class="row" id="lImportPreviewRow" style="display:none">
+  <div class="card">
+    <h2>Aper&ccedil;u de l'import (avant validation)</h2>
+    <canvas id="lImportPreview" width="640" height="400" style="max-width:100%;image-rendering:pixelated"></canvas>
+    <div class="bar" style="margin-top:8px">
+      <label>Tol&eacute;rance (pixels diff&eacute;rents tol&eacute;r&eacute;s par tuile)</label>
+      <input type="range" id="lImportTol" min="0" max="80" value="3" step="1" style="width:200px">
+      <span class="sub" id="lImportTolVal" style="font-weight:600;color:#5aa9e6">3</span>
+      <span class="sub">/ 80</span>
+    </div>
+    <div class="bar">
+      <label style="display:flex;align-items:center;gap:5px;margin:0">
+        <input type="checkbox" id="lImportIgnoreExisting" checked>
+        Ignorer les tuiles existantes (repart de zero pour cet import)
+      </label>
+    </div>
+    <div class="bar">
+      <label style="display:flex;align-items:center;gap:5px;margin:0">
+        <input type="checkbox" id="lImportSolidDig" checked>
+        Nouvelles tuiles solides et destructibles par d&eacute;faut (la plupart du
+        d&eacute;cor importe l'est ; ajustez ensuite les exceptions -- ciel,
+        d&eacute;cor traverse -- dans l'onglet Tuiles)
+      </label>
+    </div>
+    <div class="bar" style="margin-top:4px">
+      <button id="lImportApply">Valider et cr&eacute;er les tuiles</button>
+      <button id="lImportCancel">Annuler</button>
+    </div>
+    <div class="hint" id="lImportEstimate"></div>
+  </div>
+  <div class="card">
+    <h2>Catalogue des tuiles d&eacute;tect&eacute;es</h2>
+    <div class="tiles" id="lImportCatalog" style="max-width:260px"></div>
+  </div>
+</div>
+<div class="row">
+  <div class="card">
+    <h2>&Eacute;cran <span id="lIdx">1</span> &mdash; 40 &times; 20 tuiles</h2>
+    <canvas id="map" width="960" height="480"></canvas>
+    <div class="hint">
+      Clic : poser la tuile s&eacute;lectionn&eacute;e &middot; clic droit : tuile 0 &middot;
+      glisser pour peindre
+    </div>
+  </div>
+  <div class="card">
+    <h2>Tuile active</h2>
+    <div class="tiles" id="tiles2" style="max-width:180px"></div>
+  </div>
+  <div class="card">
+    <h2>Lemmings</h2>
+    <div style="display:grid;grid-template-columns:auto 60px;gap:6px 10px;align-items:center">
+      <label style="margin:0">Au d&eacute;part</label>
+      <input type="number" id="lemCount" min="1" max="99" value="10" style="width:60px">
+      <label style="margin:0">&Agrave; sauver</label>
+      <input type="number" id="lemToSave" min="0" max="99" value="5" style="width:60px">
+    </div>
+    <div class="hint">Au plus 10 lemmings &agrave; l'&eacute;cran en m&ecirc;me temps :<br>
+      les suivants attendent qu'une place se lib&egrave;re.</div>
+    <h2 style="margin-top:14px">Pouvoirs disponibles</h2>
+    <div id="skillInputs" style="display:grid;grid-template-columns:auto 60px;gap:6px 10px;align-items:center"></div>
+    <div class="hint">Nombre de chaque pouvoir pour ce niveau (0 a 99),<br>
+      dans l'ordre du panneau du jeu. Exporte en <code>lv_skills</code>.</div>
+  </div>
+</div>
+</main>
+
+<!-- ================= EXPORT ================= -->
+<main id="m-export">
+<div class="bar">
+  <label style="margin:0">Pr&eacute;fixe des symboles</label>
+  <input type="text" id="xPrefix" value="lv" style="width:80px">
+  <button class="primary" id="xGen">G&eacute;n&eacute;rer</button>
+  <button id="xCopy">Copier</button>
+  <button id="xDl">T&eacute;l&eacute;charger leveldata.asm</button>
+  <button id="xSaveJ">Sauver le projet (.json)</button>
+  <button id="xLoadJ">Charger un projet</button>
+  <input type="file" id="fJson" accept=".json" style="display:none">
+</div>
+<textarea id="out" spellcheck="false"></textarea>
+<div class="hint">
+  Format : une tuile = 10 lignes &times; 3 octets (B, G, R), conforme au mode bitmap
+  du TMS3556. La carte est un octet par case (index de tuile).
+  <span class="warn">Les donn&eacute;es sont export&eacute;es telles quelles &mdash;
+  elles n'ont pas &eacute;t&eacute; test&eacute;es sur machine.</span>
+  <br><br>Usage : enregistrer <code>leveldata.asm</code> a cote du source, puis
+  ajouter <code>#include &quot;leveldata.asm&quot;</code> dans la zone de
+  donn&eacute;es (avant <code>#include &quot;mixt_api.asm&quot;</code>).
+  Ne pas coller le contenu dans le programme : l'inclusion permet de
+  reg&eacute;n&eacute;rer le niveau sans y retoucher.
+</div>
+</main>
+
+<script>
+"use strict";
+
+/* ---------- constantes materielles ----------
+   Tuile 8x10 : 8 pixels de large (1 segment VDP), 10 lignes (hauteur d'une
+   ligne-texte). En VRAM, chaque ligne de tuile = 3 octets : plan Bleu, plan
+   Vert, plan Rouge -- ordre confirme par le manuel TMS3556 (figure 3.18).
+   Index de couleur = (B<<2)|(G<<1)|R, bit 7 = pixel de gauche.           */
+const TW = 8, TH = 10;
+const MAP_W = 40, MAP_H = 20;
+const MAX_TILES = 256, MAX_SCR = 3;   // 3 ecrans : place SRAM de la couche
+                                      // des cases creusees dans le jeu
+// 256, pas 64 : la carte reserve UN OCTET par case (indice 0-255), et les
+// tuiles elles-memes vivent en memoire PROGRAMME (#include leveldata.asm,
+// pas en VRAM) -- 256 tuiles x 30 octets = 7680 octets, une quantite tout
+// a fait raisonnable pour une cartouche. Aucune des deux limites reelles
+// du format n'impose 64 ; c'etait une valeur posee tot dans ce projet,
+// jamais deduite d'un vrai calcul materiel.
+
+/* Les 8 couleurs, dans l'ordre des index materiels */
+const PALETTE = [
+  [0,0,0],       // 0 noir
+  [255,0,0],     // 1 rouge      R
+  [0,255,0],     // 2 vert       G
+  [255,255,0],   // 3 jaune      G+R
+  [0,0,255],     // 4 bleu       B
+  [255,0,255],   // 5 magenta    B+R
+  [0,255,255],   // 6 cyan       B+G
+  [255,255,255], // 7 blanc      B+G+R
+];
+const CNAMES = ["noir","rouge","vert","jaune","bleu","magenta","cyan","blanc"];
+
+/* ---------- etat ---------- */
+let tiles = [];        // {px:Uint8Array(80), name, solid, dig}
+let cur = 0;           // tuile selectionnee
+let color = 7;         // couleur de dessin
+let clip = null;       // presse-papier de tuile
+let nScreens = 3;
+let screens = [];      // [screen][MAP_W*MAP_H] index de tuile
+let curScr = 0;
+/* ---------- projet : plusieurs THEMES (jeux de tuiles) et NIVEAUX ----------
+   Chaque niveau designe son theme ; l'ordre de la liste des niveaux est
+   l'ordre du jeu. Les variables tiles / screens / nScreens / spawnPoint /
+   skills / lemCount / lemToSave restent celles qu'utilise tout l'outil :
+   elles refletent le niveau courant (et son theme), recopiees dans
+   levels[curLevel] par storeLevel() avant tout changement de niveau, toute
+   sauvegarde et tout export. */
+let themes = [];   // {name, tiles:[...]}
+let levels = [];   // {name, theme, nScreens, screens:[3], spawnPoint, skills, lemCount, lemToSave}
+let curTheme = 0, curLevel = 0;
+const MAX_LEVELS = 31;   // le jeu indexe ses pouvoirs par niveau*8 (< 256)
+/* Tuiles dont le JEU se sert par leur nom (constantes TILE_* de mixpix) :
+   jamais supprimees par le nettoyage, et placees au MEME indice dans tous
+   les themes a l'export (le code du jeu les utilise comme constantes). */
+const SYSTEM_TILES = ["marcheA","marcheAG","marcheB","marcheBG","marcheC","marcheCG","sortie"];
+/* Point de depart des lemmings : une POSITION (ecran, colonne, ligne), pas
+   une tuile ni un attribut de tuile -- elle reste valable quelle que soit
+   la tuile qui s'y trouve dessous, et se deplace independamment d'elle.
+   Une seule par niveau (les lemmings n'apparaissent qu'une fois, au tout
+   debut). Valeur par defaut arbitraire (visible, pas hors carte) tant que
+   l'utilisateur n'a pas clique explicitement pour la placer. */
+let spawnPoint = {screen:0, col:0, row:0};
+/* Pouvoirs disponibles pour le niveau, dans l'ordre du panneau du jeu
+   (mixpix : skill_key_uc) -- a garder synchronise si l'ordre change la-bas. */
+const SKILLS = [["C","constructeur"],["D","creuseur"],["H","frappeur"],
+                ["B","bloqueur"],["F","parachutiste"],["E","kamikaze"],
+                ["G","grimpeur"],["M","mineur"]];
+let skills = [10,10,10,10,10,10,10,10];
+/* Lemmings du niveau : combien sortent en tout, combien il faut en sauver
+   (jamais plus que le nombre de depart). Exportes en LV_LEM_COUNT et
+   LV_TO_SAVE. */
+let lemCount = 10, lemToSave = 5;
+function syncLemInputs(){
+  lemCount = Math.max(1, Math.min(99, parseInt(document.getElementById("lemCount").value,10)||1));
+  lemToSave = Math.max(0, Math.min(lemCount, parseInt(document.getElementById("lemToSave").value,10)||0));
+  document.getElementById("lemCount").value = lemCount;
+  document.getElementById("lemToSave").value = lemToSave;
+}
+function tileSym(n){
+  return n ? n.toUpperCase().replace(/[^A-Z0-9_]/g,"_").replace(/^_+/,"") : "";
+}
+function isSystemTile(t){ const k = tileSym(t.name); return SYSTEM_TILES.some(n=>tileSym(n)===k); }
+function copyTile(t){ return {name:t.name, solid:t.solid, dig:t.dig, px:Uint8Array.from(t.px)}; }
+function makeLevel(name, theme, scr){
+  return {name, theme, nScreens:scr.length>=3?3:scr.length, screens:scr,
+          spawnPoint:{screen:0,col:0,row:0}, skills:[10,10,10,10,10,10,10,10],
+          lemCount:10, lemToSave:5};
+}
+/* ecrans vierges : ciel (tuile 0), sol sur les deux rangees du bas, avec la
+   tuile "terre" du theme si elle existe, sinon la premiere tuile solide */
+function blankScreens(th){
+  const T = themes[th].tiles;
+  let g = T.findIndex(t=>tileSym(t.name)==="TERRE");
+  if(g<0) g = T.findIndex(t=>t.solid);
+  if(g<0) g = 0;
+  const scr = [];
+  for(let s=0;s<MAX_SCR;s++){
+    const m = newScreen();
+    for(let i=(MAP_H-2)*MAP_W;i<MAP_H*MAP_W;i++) m[i] = g;
+    scr.push(m);
+  }
+  return scr;
+}
+function storeLevel(){
+  const L = levels[curLevel]; if(!L) return;
+  L.nScreens = nScreens; L.screens = screens;
+  L.spawnPoint = {screen:spawnPoint.screen, col:spawnPoint.col, row:spawnPoint.row};
+  L.skills = skills.slice(); L.lemCount = lemCount; L.lemToSave = lemToSave;
+}
+function applyLevel(i){
+  curLevel = i;
+  const L = levels[i];
+  curTheme = L.theme;
+  tiles = themes[curTheme].tiles;
+  screens = L.screens; nScreens = L.nScreens;
+  spawnPoint = {screen:L.spawnPoint.screen, col:L.spawnPoint.col, row:L.spawnPoint.row};
+  skills = L.skills.slice(); lemCount = L.lemCount; lemToSave = L.lemToSave;
+  cur = Math.max(0, Math.min(cur, tiles.length-1));
+  curScr = Math.min(curScr, nScreens-1);
+  document.getElementById("nScr").value = nScreens;
+  document.getElementById("lemCount").value = lemCount;
+  document.getElementById("lemToSave").value = lemToSave;
+  buildSkillInputs(); buildScrBtns(); buildProjBar();
+  drawEdit(); drawTileList(); loadProps(); drawMap();
+}
+function selectLevel(i){ storeLevel(); applyLevel(i); }
+function buildProjBar(){
+  const ls = document.getElementById("lvSel"); ls.innerHTML = "";
+  levels.forEach((L,i)=>{
+    const o = document.createElement("option");
+    o.value = i; o.textContent = (i+1)+" \u2014 "+(L.name||"sans nom");
+    if(i===curLevel) o.selected = true;
+    ls.appendChild(o);
+  });
+  document.getElementById("lvName").value = levels[curLevel].name||"";
+  const ts = document.getElementById("thSel"); ts.innerHTML = "";
+  themes.forEach((T,i)=>{
+    const o = document.createElement("option");
+    o.value = i; o.textContent = (T.name||("theme "+(i+1)))+" ("+T.tiles.length+" tuiles)";
+    if(i===curTheme) o.selected = true;
+    ts.appendChild(o);
+  });
+  const n = levels.filter(L=>L.theme===curTheme).length;
+  document.getElementById("thInfo").textContent =
+    "partage par "+n+" niveau"+(n>1?"x":"")+" -- l'onglet Tuiles modifie ce theme";
+}
+/* Aligne les tuiles systeme de chaque theme sur les indices du premier
+   theme (echange de tuiles + renumerotation des cartes des niveaux
+   concernes). Retourne {error} ou {moved}. */
+function harmonizeThemes(){
+  storeLevel();
+  const base = themes[0].tiles, target = {};
+  for(const n of SYSTEM_TILES){
+    const k = base.findIndex(t=>tileSym(t.name)===tileSym(n));
+    if(k<0) return {error:"Le premier theme (\""+themes[0].name+"\") doit contenir la tuile \""+n
+                     +"\" : le jeu s'en sert (escaliers, sortie)."};
+    target[n] = k;
+  }
+  let moved = 0;
+  for(let t=1;t<themes.length;t++){
+    const T = themes[t].tiles, users = levels.filter(L=>L.theme===t);
+    for(const n of SYSTEM_TILES){
+      const k = target[n];
+      let j = T.findIndex(x=>tileSym(x.name)===tileSym(n));
+      if(j<0){ T.push(copyTile(base[k])); j = T.length-1; moved++; }
+      while(T.length<=k) T.push(newTile(""));
+      if(j!==k){
+        const tmp = T[j]; T[j] = T[k]; T[k] = tmp;
+        users.forEach(L=>L.screens.forEach(m=>{
+          for(let i=0;i<m.length;i++){ if(m[i]===j) m[i]=k; else if(m[i]===k) m[i]=j; }
+        }));
+        moved++;
+      }
+    }
+    if(T.length>MAX_TILES) return {error:"Le theme \""+themes[t].name+"\" depasse "+MAX_TILES+" tuiles."};
+  }
+  tiles = themes[curTheme].tiles;
+  return {moved};
+}
+function clampSkill(v){ v = parseInt(v,10); return Number.isFinite(v) ? Math.max(0,Math.min(99,v)) : 0; }
+function buildSkillInputs(){
+  const box = document.getElementById("skillInputs");
+  box.innerHTML = "";
+  SKILLS.forEach(([key,name],i)=>{
+    const l = document.createElement("label");
+    l.style.margin = "0";
+    l.textContent = key+" \u2014 "+name;
+    const inp = document.createElement("input");
+    inp.type = "number"; inp.min = 0; inp.max = 99; inp.value = skills[i];
+    inp.style.width = "60px";
+    inp.onchange = ()=>{ skills[i] = clampSkill(inp.value); inp.value = skills[i]; };
+    box.appendChild(l); box.appendChild(inp);
+  });
+}
+let placingSpawn = false;
+
+function newTile(name){
+  return {px:new Uint8Array(TW*TH), name:name||"", solid:false, dig:false};
+}
+function newScreen(){ return new Uint8Array(MAP_W*MAP_H); }
+
+/* Remplit une tuile "marche d'escalier" : fillH lignes pleines en bas.
+   IMPORTANT -- lu attentivement avant de modifier ce dessin a la main :
+   la physique (mixpix) ne sonde QUE les colonnes 3 et 4 (le centre du
+   sprite, qui fait 8 px de large). Ces deux colonnes doivent rester
+   PLEINES DE FACON CONTINUE depuis la ligne (TH-fillH) jusqu'au bas de
+   la tuile -- jamais une diagonale ou un pixel isole a cet endroit, sinon
+   le sondage ne trouve qu'un seuil fantome au lieu d'un vrai palier.
+   Les colonnes 0-2 et 5-7, elles, sont PUREMENT decoratives : c'est la
+   qu'on dessine la silhouette en escalier (elle peut descendre plus tot
+   ou plus tard que le centre sans aucune consequence physique). */
+/* Copie miroir horizontale d'une tuile (colonne 0<->7, etc.), utilisee a
+   la fois par le bouton "Dupliquer en miroir" et par le jeu de depart
+   pour generer AG/BG/CG automatiquement a partir de A/B/C. */
+function mirrorTile(src, name){
+  const t = newTile(name);
+  t.solid = src.solid; t.dig = src.dig;
+  for(let y=0;y<TH;y++) for(let x=0;x<TW;x++)
+    t.px[y*TW+x] = src.px[y*TW+(TW-1-x)];
+  return t;
+}
+
+function fillStairTile(t, fillH){
+  const topEmpty = TH - fillH;
+  for(let y=0;y<TH;y++){
+    for(let x=0;x<TW;x++){
+      let solid;
+      if(x===3 || x===4){
+        solid = y >= topEmpty;                    // seuil NET, colonnes sondees
+      } else {
+        const dist = Math.abs(x-3.5);              // silhouette decorative,
+        const stepY = topEmpty + Math.floor(dist*1.3); // en escalier vers
+        solid = y >= stepY;                        // les bords
+      }
+      if(!solid){ t.px[y*TW+x] = 0; continue; }    // vide
+      t.px[y*TW+x] = ((x+y)&1) ? 1 : 3;            // damier terre partout
+    }
+  }
+  // arete claire sur la toute premiere ligne pleine du CENTRE, pour
+  // marquer le palier a l'oeil
+  if(topEmpty < TH){ t.px[topEmpty*TW+3] = 3; t.px[topEmpty*TW+4] = 3; }
+}
+
+/* jeu de depart : vide, terre, acier, herbe */
+function seed(){
+  tiles = [];
+  const t0 = newTile("vide");
+  tiles.push(t0);
+
+  const t1 = newTile("terre"); t1.solid = t1.dig = true;
+  for(let y=0;y<TH;y++) for(let x=0;x<TW;x++)
+    t1.px[y*TW+x] = ((x+y)&1) ? 1 : 3;          // damier rouge/jaune
+  tiles.push(t1);
+
+  const t2 = newTile("acier"); t2.solid = true;
+  for(let y=0;y<TH;y++) for(let x=0;x<TW;x++)
+    t2.px[y*TW+x] = (x===0||y===0||x===TW-1||y===TH-1) ? 7 : 6;
+  tiles.push(t2);
+
+  const t3 = newTile("herbe"); t3.solid = t3.dig = true;
+  for(let y=0;y<TH;y++) for(let x=0;x<TW;x++)
+    t3.px[y*TW+x] = (y<3) ? 2 : (((x+y)&1) ? 1 : 3);
+  tiles.push(t3);
+
+  /* marcheA : la position ou le lemming se tient DEJA quand il pose une
+     nouvelle marche (voir marcheC plus bas pour le principe general).
+     ATTENTION -- IMPORTANT : son seuil DOIT etre EXACTEMENT le meme que
+     celui de marcheC (5 px par defaut, doit rester synchronise avec
+     STAIR_DELTA_C dans mixpix.asm). marcheA remplace une case ou C
+     vient JUSTEMENT de le faire atterrir avec precision a CE seuil
+     precis -- un ecart, meme d'une seule ligne, le ferait tomber a
+     travers le sol au moment ou A la remplace. */
+  const tA = newTile("marcheA"); tA.solid = true; tA.dig = true;
+  fillStairTile(tA, 5);
+  tiles.push(tA);
+  tiles.push(mirrorTile(tA, "marcheAG"));   // pour construire vers la gauche
+
+  /* marcheB : l'appui invisible sous C (voir marcheC plus bas). DOIT etre
+     pleine sur TOUTE sa hauteur au centre (fillH=10, pas 7 comme les
+     autres marches) : le bas de C touche directement le HAUT de B, sans
+     aucun interstice -- un seuil partiel ici laisserait un trou pile sous
+     l'atterrissage. Seuls les bords peuvent encore varier decorativement. */
+  const tB = newTile("marcheB"); tB.solid = true; tB.dig = true;
+  fillStairTile(tB, 10);
+  tiles.push(tB);
+  tiles.push(mirrorTile(tB, "marcheBG"));
+
+  /* marcheC : la tuile d'ATTERRISSAGE de l'escalier "en coin" (A et C
+     foules, B sert seulement d'appui invisible entre les deux -- voir la
+     conversation de conception). Seuil par defaut a 5 px, modifiable ici
+     comme les deux autres -- SEULE la valeur du seuil compte pour la
+     physique (STAIR_DELTA dans mixpix.asm doit alors etre ajustee pour
+     correspondre), le reste du dessin est libre. */
+  const tC = newTile("marcheC"); tC.solid = true; tC.dig = true;
+  fillStairTile(tC, 5);
+  tiles.push(tC);
+  tiles.push(mirrorTile(tC, "marcheCG"));
+
+  /* sortie : la tuile de fin de niveau. UNE seule tuile pour l'instant --
+     elle marque le point ou un lemming est sauve (compte incremente,
+     lemming retire du jeu). Entierement solide (un sol normal sur lequel
+     on marche, pas une marche partielle) : rien de special a respecter
+     cote physique, SEUL LE NOM compte (TILE_SORTIE, exporte comme les
+     marches). Dessin par defaut : un cadre de porte, pour la reperer
+     facilement sur la carte -- purement decoratif, a affiner plus tard
+     (chateau, drapeau...). Le jour ou il faudra une porte TRAVERSABLE,
+     non bloquante (pour un decor plus elabore), ce sera une AUTRE tuile,
+     non solide, avec sa propre verification -- voir la conversation. */
+  const tSortie = newTile("sortie"); tSortie.solid = true; tSortie.dig = false;
+  for(let y=0;y<TH;y++) for(let x=0;x<TW;x++){
+    const border = (x===0||x===TW-1||y===0);
+    tSortie.px[y*TW+x] = border ? 5 : 7;   // cadre magenta, interieur blanc
+  }
+  tiles.push(tSortie);
+
+  const scr = [];
+  for(let s=0;s<MAX_SCR;s++){
+    const m = newScreen();
+    for(let y=0;y<MAP_H;y++) for(let x=0;x<MAP_W;x++){
+      const h = 7 + s*2;                         // sol de plus en plus bas
+      m[y*MAP_W+x] = (y<h) ? 0 : (y===h ? 3 : (y>=MAP_H-2 ? 2 : 1));
+    }
+    scr.push(m);
+  }
+  themes = [{name:"base", tiles}];
+  levels = [makeLevel("niveau 1", 0, scr)];
+  applyLevel(0);
+}
+
+/* ---------- onglets ---------- */
+document.querySelectorAll(".tab").forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+    document.querySelectorAll("main").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    document.getElementById("m-"+b.dataset.t).classList.add("on");
+    if(b.dataset.t==="level") drawMap();
+  };
+});
+
+/* ---------- palette ---------- */
+const palEl = document.getElementById("pal");
+function buildPal(){
+  palEl.innerHTML = "";
+  PALETTE.forEach((c,i)=>{
+    const d = document.createElement("div");
+    d.className = "sw"+(i===color?" on":"");
+    d.style.background = `rgb(${c[0]},${c[1]},${c[2]})`;
+    d.title = i+" "+CNAMES[i];
+    d.innerHTML = "<span>"+i+"</span>";
+    d.onclick = ()=>{ color=i; buildPal(); };
+    palEl.appendChild(d);
+  });
+}
+
+/* ---------- editeur de tuile ---------- */
+const ed = document.getElementById("edit"), ec = ed.getContext("2d");
+const PX = 40;                                   // zoom du pixel a l'ecran
+/* Colonnes SONDEES par la marche au pixel pres (mixpix) : le lemming fait
+   8 px de large, son corps est dessine sur les 2 colonnes centrales, et
+   c'est LA SEULE chose que la physique regarde pour savoir si une case
+   porte ou non -- peu importe l'aspect du reste de la tuile. Si ces deux
+   colonnes ne sont pas pleines de facon CONTINUE depuis un certain seuil
+   jusqu'au bas, un escalier ou un relief dessine ici ne fonctionnera pas,
+   meme si le dessin semble correct par ailleurs. D'ou le repere visuel
+   permanent ci-dessous : deux erreurs successives sur les tuiles
+   d'escalier venaient toutes les deux d'un dessin qui ignorait ces deux
+   colonnes precises.*/
+const PROBE_COLS = [3,4];
+function drawEdit(){
+  const t = tiles[cur];
+  ec.fillStyle = "#000"; ec.fillRect(0,0,ed.width,ed.height);
+  for(let y=0;y<TH;y++) for(let x=0;x<TW;x++){
+    const c = PALETTE[t.px[y*TW+x]];
+    ec.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+    ec.fillRect(x*PX,y*PX,PX,PX);
+  }
+  // bande semi-transparente sur les colonnes sondees, TOUJOURS visible,
+  // par-dessus le dessin -- pour qu'on ne les oublie plus en dessinant.
+  ec.fillStyle = "rgba(255,80,80,.22)";
+  ec.fillRect(PROBE_COLS[0]*PX, 0, (PROBE_COLS[1]-PROBE_COLS[0]+1)*PX, TH*PX);
+  ec.strokeStyle = "rgba(255,80,80,.9)"; ec.lineWidth = 2;
+  ec.strokeRect(PROBE_COLS[0]*PX+1, 1, (PROBE_COLS[1]-PROBE_COLS[0]+1)*PX-2, TH*PX-2);
+
+  ec.strokeStyle = "rgba(255,255,255,.13)"; ec.lineWidth = 1;
+  for(let x=0;x<=TW;x++){ec.beginPath();ec.moveTo(x*PX+.5,0);ec.lineTo(x*PX+.5,TH*PX);ec.stroke();}
+  for(let y=0;y<=TH;y++){ec.beginPath();ec.moveTo(0,y*PX+.5);ec.lineTo(TW*PX,y*PX+.5);ec.stroke();}
+  document.getElementById("tIdx").textContent = cur;
+
+  // avertissement si les colonnes sondees ne forment pas un seuil continu
+  const warn = document.getElementById("probeWarn");
+  if(warn){
+    let firstSolid = -1, ok = true;
+    for(let y=0;y<TH;y++){
+      const solid = PROBE_COLS.some(x=>t.px[y*TW+x]!==0);
+      if(solid && firstSolid===-1) firstSolid = y;
+      if(firstSolid!==-1 && !solid) ok = false;   // trou apres le seuil
+    }
+    if(firstSolid===-1){
+      warn.textContent = "";
+    } else if(!ok){
+      warn.textContent = "⚠ colonnes sondees (bande rouge) : pas un seuil continu -- la physique ne trouvera pas d'appui fiable ici.";
+      warn.style.color = "#ff6b6b";
+    } else {
+      warn.textContent = "colonnes sondees pleines a partir de la ligne "+firstSolid+", en continu jusqu'au bas -- OK.";
+      warn.style.color = "#6bdc6b";
+    }
+  }
+}
+let painting = false;
+function paintAt(e,erase){
+  const r = ed.getBoundingClientRect();
+  const x = Math.floor((e.clientX-r.left)/r.width*TW);
+  const y = Math.floor((e.clientY-r.top)/r.height*TH);
+  if(x<0||y<0||x>=TW||y>=TH) return;
+  tiles[cur].px[y*TW+x] = erase?0:color;
+  drawEdit(); drawTileList();
+}
+ed.onmousedown = e=>{ painting=true; paintAt(e, e.button===2); };
+ed.onmousemove = e=>{ if(painting) paintAt(e, e.buttons===2); };
+window.addEventListener("mouseup",()=>painting=false);
+ed.oncontextmenu = e=>e.preventDefault();
+
+/* ---------- liste des tuiles ---------- */
+function tileThumb(t){
+  const c = document.createElement("canvas");
+  c.width = TW; c.height = TH;
+  const g = c.getContext("2d"), img = g.createImageData(TW,TH);
+  for(let i=0;i<TW*TH;i++){
+    const p = PALETTE[t.px[i]];
+    img.data[i*4]=p[0]; img.data[i*4+1]=p[1]; img.data[i*4+2]=p[2]; img.data[i*4+3]=255;
+  }
+  g.putImageData(img,0,0);
+  return c;
+}
+/* Nombre d'utilisations de chaque tuile du theme courant, dans TOUS les
+   niveaux qui l'utilisent (leurs ecrans actifs). Le niveau affiche est lu
+   dans les variables de travail (nScreens / screens), a jour avant
+   storeLevel(). */
+function tileUsage(){
+  const n = new Array(tiles.length).fill(0);
+  levels.forEach((L,li)=>{
+    if(L.theme!==curTheme) return;
+    const ns = li===curLevel ? nScreens : L.nScreens;
+    const sc = li===curLevel ? screens : L.screens;
+    for(let s=0;s<ns;s++){ const m = sc[s]; for(let i=0;i<m.length;i++) if(m[i]<n.length) n[m[i]]++; }
+  });
+  return n;
+}
+function drawTileList(){
+  const use = tileUsage();
+  const byUse = (document.getElementById("tOrder")||{}).value!=="num";
+  [["tiles",true,true],["tiles2",true,false]].forEach(([id,withNum,withUse])=>{
+    const box = document.getElementById(id);
+    if(!box) return;
+    box.innerHTML = "";
+    const order = tiles.map((_,i)=>i);
+    // tri par utilisation : les tuiles SYSTEME (marches, sortie -- posees par
+    // le jeu) d'abord, par numero, puis les autres du plus au moins utilise
+    if(withUse && byUse){
+      const sys = tiles.map(t=>isSystemTile(t));
+      order.sort((a,b)=> (sys[b]-sys[a]) || (sys[a] ? a-b : (use[b]-use[a] || a-b)));
+    }
+    order.forEach(i=>{
+      const t = tiles[i];
+      const w = document.createElement("div");
+      w.className = "tw"+(i===cur?" on":"");
+      w.title = (t.name||("tuile "+i))+"  ["+i+"]"+(withUse?"  -- "+use[i]+" utilisation(s)":"");
+      w.appendChild(tileThumb(t));
+      if(withNum){ const b=document.createElement("b"); b.textContent=i; w.appendChild(b); }
+      if(withUse){
+        const u = document.createElement("i");
+        const sys = use[i]===0 && isSystemTile(t);
+        u.textContent = sys ? "sys" : use[i];
+        if(sys) u.className = "sys"; else if(use[i]===0 && i>0) u.className = "zero";
+        w.appendChild(u);
+      }
+      w.onclick = ()=>{ cur=i; drawEdit(); drawTileList(); loadProps(); };
+      box.appendChild(w);
+    });
+  });
+  document.getElementById("tCount").textContent = tiles.length;
+}
+
+/* ---------- proprietes ---------- */
+function loadProps(){
+  const t = tiles[cur];
+  document.getElementById("pName").value  = t.name;
+  document.getElementById("pSolid").checked = t.solid;
+  document.getElementById("pDig").checked   = t.dig;
+}
+document.getElementById("pName").oninput  = e=>{ tiles[cur].name = e.target.value; drawTileList(); };
+document.getElementById("pSolid").onchange= e=>{ tiles[cur].solid = e.target.checked; };
+document.getElementById("pDig").onchange  = e=>{ tiles[cur].dig  = e.target.checked; };
+
+document.getElementById("tAdd").onclick = ()=>{
+  if(tiles.length>=MAX_TILES){ alert(MAX_TILES+" tuiles au maximum."); return; }
+  tiles.push(newTile("tuile"+tiles.length));
+  cur = tiles.length-1; drawEdit(); drawTileList(); loadProps();
+};
+document.getElementById("tCleanup").onclick = ()=>{
+  /* Retire les tuiles qu'AUCUN niveau de ce theme n'utilise (tous les
+     niveaux, tous leurs ecrans), puis renumerote leurs cartes. Toujours
+     conservees : la tuile 0 (vide, valeur par defaut partout) et les tuiles
+     SYSTEME (marches, sortie) -- elles ne figurent sur aucune carte, c'est
+     le jeu qui les pose en cours de partie ; les supprimer casserait les
+     escaliers et la sortie. */
+  storeLevel();
+  const used = new Set([0]);
+  tiles.forEach((t,i)=>{ if(isSystemTile(t)) used.add(i); });
+  const users = levels.filter(L=>L.theme===curTheme);
+  users.forEach(L=>{ for(let s=0;s<L.nScreens;s++) L.screens[s].forEach(v=>used.add(v)); });
+  const removed = tiles.length - used.size;
+  if(removed<=0){ alert("Aucune tuile inutilisee a supprimer."); return; }
+  if(!confirm(removed+" tuile(s) inutilisee(s) sur "+tiles.length+" seront supprimees (theme \""
+              +themes[curTheme].name+"\", "+users.length+" niveau(x)). Continuer ?")) return;
+  const oldToNew = new Map(), kept = [];
+  tiles.forEach((t,i)=>{ if(used.has(i)){ oldToNew.set(i, kept.length); kept.push(t); } });
+  users.forEach(L=>L.screens.forEach(m=>{
+    for(let i=0;i<m.length;i++) m[i] = oldToNew.get(m[i]) ?? 0;
+  }));
+  themes[curTheme].tiles = kept; tiles = kept;
+  cur = Math.min(cur, tiles.length-1);
+  drawEdit(); drawTileList(); loadProps(); drawMap(); buildProjBar();
+  alert(removed+" tuile(s) supprimee(s), "+tiles.length+" restante(s).");
+};
+document.getElementById("tMirror").onclick = ()=>{
+  if(tiles.length>=MAX_TILES){ alert(MAX_TILES+" tuiles au maximum."); return; }
+  const src = tiles[cur];
+  const t = mirrorTile(src, src.name ? src.name+"G" : "tuile"+tiles.length);
+  tiles.push(t);
+  cur = tiles.length-1; drawEdit(); drawTileList(); loadProps();
+};
+document.getElementById("tClear").onclick = ()=>{ tiles[cur].px.fill(0); drawEdit(); drawTileList(); };
+
+/* --- import depuis une image, pour UNE tuile a la fois -------------------
+   Contrairement a l'import de l'onglet Niveau (qui redecoupe une image
+   entiere automatiquement), ici l'utilisateur choisit lui-meme, a l'oeil,
+   QUELLE zone 8x10 devient la tuile courante -- zoom, deplacement dans
+   l'image, positionnement fin au clavier. Utile pour extraire un motif
+   precis d'une reference (capture d'ecran d'un autre jeu, dessin...).
+   picker.data reste TOUJOURS les pixels D'ORIGINE, non zoomes : la
+   capture finale lit directement dedans, jamais le rendu zoome (qui
+   perdrait en precision). */
+let picker = null;   // {canvas, w, h, zoom, viewX, viewY, selX, selY}
+
+document.getElementById("tpBtn").onclick = ()=>{
+  document.getElementById("tpFile").value = "";
+  document.getElementById("tpFile").click();
+};
+document.getElementById("tpFile").onchange = (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const img = new Image();
+  img.onload = ()=>{
+    const off = document.createElement("canvas");
+    off.width = img.width; off.height = img.height;
+    off.getContext("2d").drawImage(img,0,0);
+    picker = {
+      canvas: off, w: img.width, h: img.height,
+      zoom: 4, viewX: 0, viewY: 0, selX: 0, selY: 0
+    };
+    document.getElementById("tpPanel").style.display = "";
+    drawPicker();
+  };
+  img.onerror = ()=>{ alert("Impossible de charger cette image."); };
+  img.src = URL.createObjectURL(file);
+};
+
+function clampPicker(){
+  const cv = document.getElementById("tpCanvas");
+  const viewW = cv.width/picker.zoom, viewH = cv.height/picker.zoom;
+  picker.viewX = Math.max(0, Math.min(Math.max(0,picker.w-viewW), picker.viewX));
+  picker.viewY = Math.max(0, Math.min(Math.max(0,picker.h-viewH), picker.viewY));
+  picker.selX = Math.max(0, Math.min(picker.w-TW, picker.selX));
+  picker.selY = Math.max(0, Math.min(picker.h-TH, picker.selY));
+}
+
+function drawPicker(){
+  if(!picker) return;
+  clampPicker();
+  const cv = document.getElementById("tpCanvas");
+  const cx = cv.getContext("2d");
+  cx.fillStyle = "#000"; cx.fillRect(0,0,cv.width,cv.height);
+  cx.imageSmoothingEnabled = false;   // zoom net, pixel a pixel
+  const viewW = cv.width/picker.zoom, viewH = cv.height/picker.zoom;
+  cx.drawImage(picker.canvas, picker.viewX, picker.viewY, viewW, viewH,
+               0, 0, cv.width, cv.height);
+  const sx = (picker.selX - picker.viewX) * picker.zoom;
+  const sy = (picker.selY - picker.viewY) * picker.zoom;
+  cx.strokeStyle = "rgba(255,80,80,.95)"; cx.lineWidth = 2;
+  cx.strokeRect(sx+1, sy+1, TW*picker.zoom-2, TH*picker.zoom-2);
+}
+
+let tpPanning = false, tpPanStart = null;
+const tpCv = document.getElementById("tpCanvas");
+tpCv.oncontextmenu = e=>e.preventDefault();
+tpCv.onmousedown = e=>{
+  if(!picker) return;
+  const r = tpCv.getBoundingClientRect();
+  const px = (e.clientX-r.left)/picker.zoom + picker.viewX;
+  const py = (e.clientY-r.top)/picker.zoom + picker.viewY;
+  if(e.button===2){
+    tpPanning = true;
+    tpPanStart = {x:e.clientX, y:e.clientY, vx:picker.viewX, vy:picker.viewY};
+  } else {
+    picker.selX = Math.round(px - TW/2);
+    picker.selY = Math.round(py - TH/2);
+    drawPicker();
+  }
+  tpCv.focus();
+};
+window.addEventListener("mousemove", e=>{
+  if(!tpPanning || !picker) return;
+  picker.viewX = tpPanStart.vx - (e.clientX-tpPanStart.x)/picker.zoom;
+  picker.viewY = tpPanStart.vy - (e.clientY-tpPanStart.y)/picker.zoom;
+  drawPicker();
+});
+window.addEventListener("mouseup", ()=>{ tpPanning = false; });
+tpCv.onkeydown = e=>{
+  if(!picker) return;
+  const moves = {ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1]};
+  if(moves[e.key]){
+    picker.selX += moves[e.key][0];
+    picker.selY += moves[e.key][1];
+    drawPicker();
+    e.preventDefault();
+  }
+};
+document.getElementById("tpZoomIn").onclick = ()=>{
+  if(!picker) return;
+  picker.zoom = Math.min(32, picker.zoom*2);
+  document.getElementById("tpZoomLbl").textContent = picker.zoom;
+  drawPicker();
+};
+document.getElementById("tpZoomOut").onclick = ()=>{
+  if(!picker) return;
+  picker.zoom = Math.max(1, picker.zoom/2);
+  document.getElementById("tpZoomLbl").textContent = picker.zoom;
+  drawPicker();
+};
+document.getElementById("tpCapture").onclick = ()=>{
+  if(!picker) return;
+  const data = picker.canvas.getContext("2d")
+    .getImageData(picker.selX, picker.selY, TW, TH).data;
+  for(let i=0;i<TW*TH;i++){
+    tiles[cur].px[i] = nearestPaletteIndex(data[i*4], data[i*4+1], data[i*4+2]);
+  }
+  drawEdit(); drawTileList();
+};
+
+document.getElementById("tFill").onclick  = ()=>{ tiles[cur].px.fill(color); drawEdit(); drawTileList(); };
+document.getElementById("tCopy").onclick  = ()=>{ clip = tiles[cur].px.slice(); };
+document.getElementById("tPaste").onclick = ()=>{ if(clip){ tiles[cur].px.set(clip); drawEdit(); drawTileList(); } };
+
+/* ---------- carte ---------- */
+const mp = document.getElementById("map"), mc = mp.getContext("2d");
+const CW = mp.width/MAP_W, CH = mp.height/MAP_H;
+function drawMap(){
+  mc.fillStyle="#000"; mc.fillRect(0,0,mp.width,mp.height);
+  const m = screens[curScr];
+  for(let y=0;y<MAP_H;y++) for(let x=0;x<MAP_W;x++){
+    const t = tiles[m[y*MAP_W+x]] || tiles[0];
+    mc.drawImage(tileThumb(t), x*CW, y*CH, CW, CH);
+  }
+  mc.strokeStyle="rgba(255,255,255,.08)";
+  for(let x=0;x<=MAP_W;x++){mc.beginPath();mc.moveTo(x*CW+.5,0);mc.lineTo(x*CW+.5,mp.height);mc.stroke();}
+  for(let y=0;y<=MAP_H;y++){mc.beginPath();mc.moveTo(0,y*CH+.5);mc.lineTo(mp.width,y*CH+.5);mc.stroke();}
+  if(spawnPoint.screen===curScr){
+    // marqueur du point de depart : independant de la tuile dessous, donc
+    // dessine PAR-DESSUS elle, quelle qu'elle soit -- un simple repere
+    // visuel, jamais ecrit dans la carte de tuiles elle-meme.
+    const cx = spawnPoint.col*CW + CW/2, cy = spawnPoint.row*CH + CH/2;
+    mc.strokeStyle = "#5aa9e6"; mc.lineWidth = 2;
+    mc.beginPath(); mc.moveTo(cx-CW*.4,cy); mc.lineTo(cx+CW*.4,cy); mc.stroke();
+    mc.beginPath(); mc.moveTo(cx,cy-CH*.4); mc.lineTo(cx,cy+CH*.4); mc.stroke();
+    mc.beginPath(); mc.arc(cx,cy,Math.min(CW,CH)*.45,0,Math.PI*2); mc.stroke();
+  }
+  if(hlTile>=0){
+    // cases utilisant la tuile a localiser : cadre magenta bien visible
+    mc.fillStyle = "rgba(255,60,255,.30)"; mc.strokeStyle = "#ff3cff"; mc.lineWidth = 2;
+    for(let i=0;i<m.length;i++) if(m[i]===hlTile){
+      const x = i%MAP_W, y = (i/MAP_W)|0;
+      mc.fillRect(x*CW, y*CH, CW, CH);
+      mc.strokeRect(x*CW+1, y*CH+1, CW-2, CH-2);
+    }
+    mc.lineWidth = 1;
+  }
+  document.getElementById("lIdx").textContent = curScr+1;
+  document.getElementById("lSpawnInfo").textContent =
+    "Depart : ecran "+(spawnPoint.screen+1)+", colonne "+spawnPoint.col+", ligne "+spawnPoint.row;
+}
+let mpaint=false;
+let hlTile = -1;                         // tuile localisee (-1 : aucune)
+function mapAt(e,erase){
+  const r = mp.getBoundingClientRect();
+  const x = Math.floor((e.clientX-r.left)/r.width*MAP_W);
+  const y = Math.floor((e.clientY-r.top)/r.height*MAP_H);
+  if(x<0||y<0||x>=MAP_W||y>=MAP_H) return;
+  screens[curScr][y*MAP_W+x] = erase?0:cur;
+  drawMap();
+}
+function mapSpawnAt(e){
+  const r = mp.getBoundingClientRect();
+  const x = Math.floor((e.clientX-r.left)/r.width*MAP_W);
+  const y = Math.floor((e.clientY-r.top)/r.height*MAP_H);
+  if(x<0||y<0||x>=MAP_W||y>=MAP_H) return;
+  spawnPoint = {screen:curScr, col:x, row:y};
+  placingSpawn = false;
+  document.getElementById("lSpawnBtn").classList.remove("primary");
+  document.getElementById("lSpawnBtn").textContent = "Placer le point de d\u00e9part";
+  drawMap();
+}
+document.getElementById("lSpawnBtn").onclick = ()=>{
+  placingSpawn = !placingSpawn;
+  document.getElementById("lSpawnBtn").classList.toggle("primary", placingSpawn);
+  document.getElementById("lSpawnBtn").textContent = placingSpawn
+    ? "Cliquez sur la carte..." : "Placer le point de d\u00e9part";
+};
+/* Identifier une tuile : clique une case du niveau pour retrouver et
+   modifier la tuile qui s'y trouve -- sans avoir a la reconnaitre a l'oeil
+   parmi tout le jeu de tuiles issu d'un import. Selectionne cette tuile
+   (comme un clic dans la liste de l'onglet Tuiles) et y bascule directement. */
+let placingPick = false;
+function mapPickAt(e){
+  const r = mp.getBoundingClientRect();
+  const x = Math.floor((e.clientX-r.left)/r.width*MAP_W);
+  const y = Math.floor((e.clientY-r.top)/r.height*MAP_H);
+  if(x<0||y<0||x>=MAP_W||y>=MAP_H) return;
+  cur = screens[curScr][y*MAP_W+x];
+  placingPick = false;
+  document.getElementById("lPickBtn").classList.remove("primary");
+  document.getElementById("lPickBtn").textContent = "Identifier une tuile";
+  drawEdit(); drawTileList(); loadProps();
+  // on RESTE dans l'onglet Niveau : la tuile identifiee est aussitot la
+  // tuile active, prete a etre posee ailleurs. La palette de droite defile
+  // jusqu'a elle (utile avec un grand jeu de tuiles importe).
+  const on = document.querySelector("#tiles2 .tw.on");
+  if(on && on.scrollIntoView) on.scrollIntoView({block:"nearest"});
+}
+document.getElementById("lPickBtn").onclick = ()=>{
+  placingPick = !placingPick;
+  document.getElementById("lPickBtn").classList.toggle("primary", placingPick);
+  document.getElementById("lPickBtn").textContent = placingPick
+    ? "Cliquez sur la carte..." : "Identifier une tuile";
+};
+mp.onmousedown = e=>{
+  if(placingSpawn){ mapSpawnAt(e); return; }
+  if(placingPick){ mapPickAt(e); return; }
+  mpaint=true; mapAt(e, e.button===2);
+};
+mp.onmousemove = e=>{ if(mpaint && !placingSpawn && !placingPick) mapAt(e, e.buttons===2); };
+window.addEventListener("mouseup",()=>mpaint=false);
+mp.oncontextmenu = e=>e.preventDefault();
+
+function buildScrBtns(){
+  const box = document.getElementById("scrBtns");
+  box.innerHTML="";
+  for(let i=0;i<nScreens;i++){
+    const b=document.createElement("button");
+    b.textContent = i+1;
+    if(hlTile>=0){                         // nombre de cases localisees
+      const n = screens[i].reduce((a,v)=>a+(v===hlTile),0);
+      if(n) b.textContent = (i+1)+" ("+n+")";
+    }
+    if(i===curScr) b.className="on";
+    b.onclick = ()=>{ curScr=i; buildScrBtns(); drawMap(); };
+    box.appendChild(b);
+  }
+}
+document.getElementById("nScr").onchange = e=>{
+  nScreens = Math.max(1,Math.min(MAX_SCR, +e.target.value||1));
+  e.target.value = nScreens;
+  if(curScr>=nScreens) curScr = nScreens-1;
+  if(spawnPoint.screen>=nScreens) spawnPoint.screen = nScreens-1;
+  buildScrBtns(); drawMap();
+};
+document.getElementById("lClear").onclick = ()=>{ screens[curScr].fill(0); drawMap(); };
+
+/* --- import d'image : redecoupe en tuiles 8x10, compatible avec le jeu de
+   tuiles courant -------------------------------------------------------
+   Principe : quantifie chaque pixel a la COULEUR LA PLUS PROCHE parmi les
+   8 de la palette (distance euclidienne en RGB -- ces 8 couleurs sont
+   des primaires/secondaires pures, bien separees, une distance simple
+   suffit). Puis, pour chaque case 8x10 de la carte : compare son motif
+   aux tuiles DEJA existantes -- PAS une correspondance exacte, une
+   TOLERANCE (nombre de pixels differents acceptes) : sans elle, le
+   moindre bruit de quantification (JPEG, anti-aliasing) empechait deux
+   cases identiques a l'oeil de partager une tuile, en creant une legion
+   de quasi-doublons. Reutilise la premiere qui correspond dans cette
+   tolerance, sinon en cree une nouvelle -- jusqu'a MAX_TILES, au-dela,
+   reprend la tuile existante la plus proche plutot que d'echouer.
+   Le resultat n'est PAS applique directement : un APERCU (l'image
+   quantifiee, telle qu'elle serait recomposee a partir des tuiles) et
+   une estimation du nombre de tuiles sont montres D'ABORD, avec la
+   tolerance ajustable -- on ne cree et modifie la carte qu'au clic sur
+   "Valider", jamais avant, pour ne pas polluer le jeu de tuiles avec un
+   essai qu'on voudrait refaire.
+   Les tuiles nouvellement creees sont ni solides ni destructibles par
+   defaut (vide/decor) : deviner "est-ce du sol ?" depuis les seuls
+   pixels serait peu fiable, mieux vaut laisser l'utilisateur les ajuster
+   ensuite dans l'onglet Tuiles. */
+function nearestPaletteIndex(r,g,b){
+  let best=0, bestDist=Infinity;
+  for(let i=0;i<PALETTE.length;i++){
+    const [pr,pg,pb]=PALETTE[i];
+    const d=(r-pr)*(r-pr)+(g-pg)*(g-pg)+(b-pb)*(b-pb);
+    if(d<bestDist){ bestDist=d; best=i; }
+  }
+  return best;
+}
+function pxDiffCount(a,b){
+  let n=0;
+  for(let i=0;i<a.length;i++) if(a[i]!==b[i]) n++;
+  return n;
+}
+
+/* Calcule le PLAN d'import pour TOUS les ecrans concernes A LA FOIS, SANS
+   RIEN MODIFIER (ni tiles[], ni screens[]) -- en DEUX PASSES, pas au fil
+   de l'eau -------------------------------------------------------------
+   Pourquoi deux passes : un premier essai traitait les cases dans l'ordre
+   de lecture, attribuant les places disponibles au premier motif
+   rencontre. Resultat : un motif qui revient 50 fois dans l'image mais
+   apparait tard pouvait se retrouver sacrifie au profit d'un motif
+   rencontre tot mais qui n'apparait qu'une fois -- l'ordre de lecture
+   decidait du detail conserve, sans rapport avec l'importance reelle du
+   motif. Un outil de reference sans limite de tuiles n'a pas ce
+   probleme ; exeltile, lui, doit composer avec la vraie limite
+   materielle (MAX_TILES), donc le choix de QUELS motifs meritent une
+   place doit etre delibere, pas accidentel.
+   Passe 1 : chaque case est d'abord comparee aux tuiles EXISTANTES (sauf
+   si ignoreExisting), sinon regroupee avec les autres cases DEJA VUES
+   dont le motif est proche (dans la tolerance) -- un groupe = un motif
+   candidat, son nombre de membres = combien de fois ce motif apparait.
+   Passe 2 : les groupes sont tries par frequence D'ABORD, et seuls les
+   MAX_TILES plus utilises recoivent une vraie nouvelle tuile ; les
+   groupes restants (les motifs les plus rares) sont replies sur le
+   groupe RETENU le plus proche -- l'approximation tombe desormais sur
+   les details les moins repandus, jamais sur les plus frequents. */
+function planImportAll(qidx, totalW, tol, nScr, multiScreen, ignoreExisting){
+  // --- passe 1 : recense chaque case, regroupe les motifs proches ---
+  const cells = [];              // {s, cellIdx, px}
+  for(let s=0;s<nScr;s++){
+    const sx0 = multiScreen ? s*(MAP_W*TW) : 0;
+    for(let by=0;by<MAP_H;by++){
+      for(let bx=0;bx<MAP_W;bx++){
+        const px = new Uint8Array(TW*TH);
+        for(let y=0;y<TH;y++) for(let x=0;x<TW;x++){
+          px[y*TW+x] = qidx[(by*TH+y)*totalW + (sx0+bx*TW+x)];
+        }
+        cells.push({s, cellIdx: by*MAP_W+bx, px});
+      }
+    }
+  }
+  const groups = [];             // {px, members:[cellIndex,...]}
+  const assign = new Array(cells.length);   // {kind:'real',index} | {kind:'group',g}
+  cells.forEach((cell,ci)=>{
+    let bestReal=-1, bestRealDiff=Infinity;
+    if(!ignoreExisting){
+      for(let ti=0;ti<tiles.length;ti++){
+        const d = pxDiffCount(tiles[ti].px, cell.px);
+        if(d<bestRealDiff){ bestRealDiff=d; bestReal=ti; }
+        if(d===0) break;
+      }
+    }
+    if(bestReal>=0 && bestRealDiff<=tol){
+      assign[ci] = {kind:'real', index:bestReal};
+      return;
+    }
+    let bestG=-1, bestGDiff=Infinity;
+    for(let gi=0;gi<groups.length;gi++){
+      const d = pxDiffCount(groups[gi].px, cell.px);
+      if(d<bestGDiff){ bestGDiff=d; bestG=gi; }
+      if(d===0) break;
+    }
+    if(bestG>=0 && bestGDiff<=tol){
+      groups[bestG].members.push(ci);
+      assign[ci] = {kind:'group', g:bestG};
+    } else {
+      groups.push({px:cell.px, members:[ci]});
+      assign[ci] = {kind:'group', g:groups.length-1};
+    }
+  });
+
+  // --- passe 2 : garde les groupes les plus FREQUENTS dans le budget --
+  const budget = Math.max(0, MAX_TILES - (ignoreExisting?0:tiles.length));
+  const order = groups.map((_,i)=>i).sort((a,b)=>groups[b].members.length-groups[a].members.length);
+  const keptIdx = new Set(order.slice(0, budget));
+  const candidates = [];
+  const groupToCand = new Map();
+  order.slice(0, budget).forEach(gi=>{ groupToCand.set(gi, candidates.length); candidates.push(groups[gi].px); });
+  // groupes sacrifies : repliés sur le candidat retenu le plus proche
+  const groupFallback = new Map();
+  groups.forEach((g,gi)=>{
+    if(keptIdx.has(gi)) return;
+    let bestC=-1, bestDiff=Infinity;
+    candidates.forEach((cpx,ci)=>{
+      const d = pxDiffCount(cpx, g.px);
+      if(d<bestDiff){ bestDiff=d; bestC=ci; }
+    });
+    groupFallback.set(gi, bestC);
+  });
+
+  // --- construit le plan final, par ecran ---
+  const plans = Array.from({length:nScr}, ()=>new Array(MAP_W*MAP_H));
+  let reused=0, created=candidates.length, approximated=0;
+  cells.forEach((cell,ci)=>{
+    const a = assign[ci];
+    let entry;
+    if(a.kind==='real'){
+      entry = {kind:'real', index:a.index};
+      reused++;
+    } else if(keptIdx.has(a.g)){
+      entry = {kind:'cand', index:groupToCand.get(a.g)};
+      reused++;   // ce motif a deja sa tuile (comptee une fois dans created)
+    } else {
+      const fb = groupFallback.get(a.g);
+      entry = fb>=0 ? {kind:'cand', index:fb} : {kind:'real', index:0};
+      approximated++;
+    }
+    plans[cell.s][cell.cellIdx] = entry;
+  });
+  // le tout premier membre de chaque groupe retenu compte comme "cree",
+  // pas "reutilise" -- corrige le double-comptage ci-dessus
+  reused -= created;
+  return {plans, candidates, reused, created, approximated};
+}
+
+let importState = null;  // {qidx, totalW, scrH, multiScreen, nScr, tol}
+
+function drawImportPreview(qidxToShow){
+  const {totalW, scrH} = importState;
+  const qidx = qidxToShow || importState.qidx;
+  const cv = document.getElementById("lImportPreview");
+  const cx = cv.getContext("2d");
+  const sc = Math.min(cv.width/totalW, cv.height/scrH);
+  const dw = Math.round(totalW*sc), dh = Math.round(scrH*sc);
+  const img = cx.createImageData(totalW, scrH);
+  for(let p=0;p<totalW*scrH;p++){
+    const [r,g,b] = PALETTE[qidx[p]];
+    img.data[p*4]=r; img.data[p*4+1]=g; img.data[p*4+2]=b; img.data[p*4+3]=255;
+  }
+  const tmp = document.createElement("canvas");
+  tmp.width=totalW; tmp.height=scrH;
+  tmp.getContext("2d").putImageData(img,0,0);
+  cx.fillStyle="#000"; cx.fillRect(0,0,cv.width,cv.height);
+  cx.imageSmoothingEnabled=false;
+  cx.drawImage(tmp,0,0,totalW,scrH,0,0,dw,dh);
+}
+
+/* Reconstruit l'image PIXEL PAR PIXEL a partir du plan actuel (quelle
+   tuile pour chaque case) -- pas la simple quantification couleur par
+   couleur. C'est ce qui rend le curseur de tolerance VRAIMENT parlant :
+   une case "approximee" par une tuile voisine apparait avec le motif
+   EXACT de cette tuile, pas avec ses propres couleurs d'origine --
+   exactement ce que produirait le niveau une fois les tuiles en place. */
+function buildReconstructedQidx(){
+  const {totalW, scrH, multiScreen, nScr, plans, candidates} = importState;
+  const out = new Uint8Array(totalW*scrH);
+  for(let s=0;s<nScr;s++){
+    const sx0 = multiScreen ? s*(MAP_W*TW) : 0;
+    const plan = plans[s];
+    let i = 0;
+    for(let by=0;by<MAP_H;by++){
+      for(let bx=0;bx<MAP_W;bx++){
+        const entry = plan[i++];
+        const px = entry.kind==='real' ? tiles[entry.index].px : candidates[entry.index];
+        for(let y=0;y<TH;y++) for(let x=0;x<TW;x++){
+          out[(by*TH+y)*totalW + (sx0+bx*TW+x)] = px[y*TW+x];
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function tileCanvasFromPx(px){
+  const c = document.createElement("canvas");
+  c.width = TW; c.height = TH;
+  const g = c.getContext("2d"), img = g.createImageData(TW,TH);
+  for(let i=0;i<TW*TH;i++){
+    const p = PALETTE[px[i]];
+    img.data[i*4]=p[0]; img.data[i*4+1]=p[1]; img.data[i*4+2]=p[2]; img.data[i*4+3]=255;
+  }
+  g.putImageData(img,0,0);
+  return c;
+}
+function recomputeImportEstimate(){
+  const tol = Math.max(0, Math.min(80, parseInt(document.getElementById("lImportTol").value)||0));
+  document.getElementById("lImportTolVal").textContent = tol;
+  const ignoreExisting = document.getElementById("lImportIgnoreExisting").checked;
+  importState.tol = tol;
+  importState.ignoreExisting = ignoreExisting;
+  const {qidx, totalW, multiScreen, nScr} = importState;
+  const {plans, candidates, reused, created, approximated} =
+    planImportAll(qidx, totalW, tol, nScr, multiScreen, ignoreExisting);
+  importState.candidates = candidates;
+  importState.plans = plans;
+  drawImportPreview(buildReconstructedQidx());
+  document.getElementById("lImportEstimate").textContent =
+    (multiScreen ? nScr+" ecran(s)" : "1 ecran")+" -- "+reused+" case(s) sur une tuile existante, "
+    +created+" nouvelle(s) tuile(s), "+(approximated>0 ? approximated+" approximee(s) (motifs les moins frequents, sacrifies en priorite)" : "aucune approximation")
+    +" (tuiles au total apres import : "+((ignoreExisting?0:tiles.length)+created)+" / "+MAX_TILES+")";
+
+  const cat = document.getElementById("lImportCatalog");
+  cat.innerHTML = "";
+  candidates.forEach((px,i)=>{
+    const w = document.createElement("div");
+    w.className = "tw";
+    w.title = "nouvelle tuile "+i;
+    w.appendChild(tileCanvasFromPx(px));
+    cat.appendChild(w);
+  });
+}
+
+document.getElementById("lImportBtn").onclick = ()=>{
+  document.getElementById("lImportFile").value = "";
+  document.getElementById("lImportFile").click();
+};
+document.getElementById("lImportFile").onchange = (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const status = document.getElementById("lImportStatus");
+  status.textContent = "Chargement...";
+  const img = new Image();
+  img.onload = ()=>{
+    const scrW = MAP_W*TW, scrH = MAP_H*TH;         // 320 x 200
+    const nScrFromImg = Math.max(1, Math.round(img.width/scrW));
+    const multiScreen = img.width > scrW*1.5 && nScrFromImg>1;
+    const totalW = multiScreen ? nScrFromImg*scrW : scrW;
+    const nScr = multiScreen ? Math.min(nScrFromImg, screens.length) : 1;
+
+    const off = document.createElement("canvas");
+    off.width = totalW; off.height = scrH;
+    const octx = off.getContext("2d");
+    octx.imageSmoothingEnabled = true;   // moyenne les pixels sources en
+                                          // reduisant l'image -- une copie
+                                          // pixel-a-pixel d'une image haute
+                                          // resolution ne prendrait qu'UN
+                                          // point isole par case et
+                                          // amplifierait le bruit
+    octx.drawImage(img, 0, 0, totalW, scrH);
+    const data = octx.getImageData(0,0,totalW,scrH).data;
+    const qidx = new Uint8Array(totalW*scrH);
+    for(let p=0;p<totalW*scrH;p++){
+      qidx[p] = nearestPaletteIndex(data[p*4], data[p*4+1], data[p*4+2]);
+    }
+
+    importState = {qidx, totalW, scrH, multiScreen, nScr};
+    recomputeImportEstimate();
+    document.getElementById("lImportPreviewRow").style.display = "";
+    status.textContent = img.width!==totalW || img.height!==scrH
+      ? "Image redimensionnee de "+img.width+"x"+img.height+" vers "+totalW+"x"+scrH+"."
+      : "";
+  };
+  img.onerror = ()=>{ status.textContent = "Impossible de charger cette image."; };
+  img.src = URL.createObjectURL(file);
+};
+document.getElementById("lImportTol").oninput = ()=>{
+  if(importState){ recomputeImportEstimate(); }
+};
+document.getElementById("lImportIgnoreExisting").onchange = ()=>{
+  if(importState){ recomputeImportEstimate(); }
+};
+document.getElementById("lImportCancel").onclick = ()=>{
+  importState = null;
+  document.getElementById("lImportPreviewRow").style.display = "none";
+  document.getElementById("lImportStatus").textContent = "";
+};
+document.getElementById("lImportApply").onclick = ()=>{
+  if(!importState) return;
+  const {candidates, plans, multiScreen, nScr} = importState;
+  const solidDig = document.getElementById("lImportSolidDig").checked;
+  const baseIndex = tiles.length;
+  candidates.forEach((px,i)=>{
+    const t = newTile("imp"+(baseIndex+i));
+    t.px.set(px);
+    // une tuile SANS AUCUN pixel (ciel, fond noir) n'est jamais solide :
+    // sinon mur invisible pour les pouvoirs qui lisent les proprietes
+    const empty = !t.px.some(v=>v);
+    t.solid = solidDig && !empty; t.dig = t.solid;
+    tiles.push(t);
+  });
+  for(let s=0;s<nScr;s++){
+    const target = multiScreen ? s : curScr;
+    const m = screens[target];
+    plans[s].forEach((entry,i)=>{
+      m[i] = entry.kind==='real' ? entry.index : baseIndex+entry.index;
+    });
+  }
+  drawMap(); drawTileList(); loadProps();
+  document.getElementById("lImportPreviewRow").style.display = "none";
+  document.getElementById("lImportStatus").textContent = "Import applique. "
+    + (solidDig
+       ? "Les nouvelles tuiles sont solides et destructibles par defaut -- ajustez les exceptions (ciel, decor traverse) dans l'onglet Tuiles."
+       : "Les nouvelles tuiles sont ni solides ni destructibles par defaut -- a ajuster dans l'onglet Tuiles.");
+  importState = null;
+};
+
+document.getElementById("lFillRow").onclick = ()=>{
+  /* remplit toute la zone sous la premiere case non vide de chaque colonne */
+  const m = screens[curScr];
+  for(let x=0;x<MAP_W;x++){
+    let y0=-1;
+    for(let y=0;y<MAP_H;y++) if(m[y*MAP_W+x]!==0){ y0=y; break; }
+    if(y0>=0) for(let y=y0;y<MAP_H;y++) if(m[y*MAP_W+x]===0) m[y*MAP_W+x]=cur;
+  }
+  drawMap();
+};
+
+/* ---------- export asm ---------- */
+function hx(n){ return "$"+n.toString(16).toUpperCase().padStart(2,"0"); }
+
+/* Une ligne de tuile -> 3 octets B,G,R. bit 7 = pixel de gauche. */
+function tileBytes(t){
+  const out = [];
+  for(let y=0;y<TH;y++){
+    let B=0,G=0,R=0;
+    for(let x=0;x<TW;x++){
+      const c = t.px[y*TW+x], bit = 0x80>>x;
+      if(c&4) B|=bit;
+      if(c&2) G|=bit;
+      if(c&1) R|=bit;
+    }
+    out.push(B,G,R);
+  }
+  return out;                                   // 30 octets
+}
+
+function genAsm(){
+  /* Tuiles entierement vides mais marquees solides (projets importes avant
+     la correction ci-dessus) : on propose de les corriger. */
+  const bad = [];
+  themes.forEach((th,t)=>th.tiles.forEach((x,i)=>{
+    if(i>0 && x.solid && !x.px.some(v=>v)) bad.push([t,i,x.name]);
+  }));
+  if(bad.length && confirm(bad.length+" tuile(s) ENTIEREMENT VIDE(S) sont marquees solides ("
+      +bad.slice(0,6).map(([t,i,n])=>n||("#"+i)).join(", ")+(bad.length>6?"...":"")
+      +") : pour les lemmings ce sont des murs invisibles. Les rendre non solides ?")){
+    bad.forEach(([t,i])=>{ themes[t].tiles[i].solid=false; themes[t].tiles[i].dig=false; });
+    loadProps(); drawTileList();
+  }
+  const h = harmonizeThemes();
+  if(h.error){ alert(h.error); return null; }
+  if(h.moved){ drawMap(); drawTileList(); buildProjBar(); }
+  const p = (document.getElementById("xPrefix").value||"lv").replace(/[^A-Za-z0-9_]/g,"");
+  const P = p.toUpperCase(), L = [];
+  const byteLines = (vals, comment)=>{
+    for(let i=0;i<vals.length;i+=16)
+      L.push("        .byte   "+vals.slice(i,i+16).join(",")+(i===0&&comment?"   ; "+comment:""));
+  };
+  L.push("; ============================================================================");
+  L.push("; Genere par EXELTILE -- ne pas editer a la main.");
+  L.push(";");
+  L.push("; "+levels.length+" niveau(x), "+themes.length+" theme(s) (jeux de tuiles). Chaque niveau");
+  L.push("; designe son theme ; l'ordre des niveaux est l'ordre du jeu.");
+  L.push("; Tuiles "+TW+"x"+TH+", mode bitmap TMS3556 : chaque ligne de tuile occupe");
+  L.push("; 3 octets consecutifs -- plan Bleu, plan Vert, plan Rouge (manuel TMS3556,");
+  L.push("; figure 3.18). bit 7 = pixel de gauche. Une tuile = "+(TH*3)+" octets.");
+  L.push("; ============================================================================");
+  L.push("");
+  L.push(P+"_NLEVELS     .equ    "+levels.length);
+  L.push(P+"_NTHEMES     .equ    "+themes.length);
+  L.push(P+"_MAP_W       .equ    "+MAP_W);
+  L.push(P+"_MAP_H       .equ    "+MAP_H);
+  L.push(P+"_TILE_BYTES  .equ    "+(TH*3));
+  L.push("");
+
+  // --- constantes nommees : celles du PREMIER theme. Les tuiles systeme
+  // (marches, sortie) ont ete placees au meme indice dans tous les themes
+  // par harmonizeThemes() : le jeu peut s'y referer par constante.
+  const seen = {}, named = [];
+  themes[0].tiles.forEach((t,i)=>{
+    const sym = t.name ? "TILE_"+tileSym(t.name) : "";
+    if(!sym || sym==="TILE_") return;
+    if(seen[sym]!==undefined){
+      named.push("; ATTENTION : \""+t.name+"\" (tuile "+i+") donne le meme label que la tuile "
+                 +seen[sym]+" -- renommez l'une des deux.");
+      return;
+    }
+    seen[sym] = i;
+    named.push(sym.padEnd(16)+" .equ    "+i+"               ; = tuile \""+t.name+"\""
+               +(isSystemTile(t)?" (meme indice dans tous les themes)":""));
+  });
+  if(named.length){
+    L.push("; --- constantes nommees (premier theme) ------------------------------------");
+    named.forEach(l=>L.push(l));
+    L.push("");
+  }
+
+  // --- parametres des niveaux : une entree par niveau, dans l'ordre du jeu
+  L.push("; --- niveaux : une entree par niveau ---------------------------------------");
+  levels.forEach((lv,i)=>L.push(";   "+(i+1)+" : "+(lv.name||"sans nom")+" (theme \""+themes[lv.theme].name+"\")"));
+  const cnt = lv=>Math.max(1,Math.min(99,lv.lemCount|0));
+  L.push(p+"_lvl_theme:");       byteLines(levels.map(lv=>lv.theme), "theme (jeu de tuiles)");
+  L.push(p+"_lvl_nscr:");        byteLines(levels.map(lv=>lv.nScreens), "nombre d'ecrans (1..3)");
+  L.push(p+"_lvl_spawn_scr:");   byteLines(levels.map(lv=>Math.min(lv.spawnPoint.screen, lv.nScreens-1)), "depart : ecran");
+  L.push(p+"_lvl_spawn_col:");   byteLines(levels.map(lv=>lv.spawnPoint.col), "depart : colonne (segments)");
+  L.push(p+"_lvl_spawn_y:");     byteLines(levels.map(lv=>lv.spawnPoint.row*TH), "depart : ligne de balayage (rangee*"+TH+")");
+  L.push(p+"_lvl_lem_count:");   byteLines(levels.map(cnt), "lemmings a faire sortir");
+  L.push(p+"_lvl_to_save:");     byteLines(levels.map(lv=>Math.max(0,Math.min(cnt(lv),lv.lemToSave|0))), "lemmings a sauver");
+  L.push("; pouvoirs, "+SKILLS.length+" par niveau : "+SKILLS.map(([k,n])=>k+" "+n).join(", "));
+  L.push(p+"_lvl_skills:");
+  levels.forEach((lv,i)=>L.push("        .byte   "+lv.skills.map(clampSkill).join(",")+"   ; niveau "+(i+1)));
+  L.push("");
+
+  // --- themes : proprietes puis pixels des tuiles
+  themes.forEach((th,t)=>{
+    const T = th.tiles;
+    L.push("; --- theme "+t+" : \""+th.name+"\", "+T.length+" tuiles -----------------------------");
+    L.push("; proprietes : bit 0 = solide (porte un lemming) ; bit 1 = destructible");
+    L.push(p+"_t"+t+"_flags:");
+    const fl = T.map(x=>(x.solid?1:0)|(x.dig?2:0));
+    for(let i=0;i<fl.length;i+=8)
+      L.push("        .byte   "+fl.slice(i,i+8).map(hx).join(",")
+             +"   ; "+T.slice(i,i+8).map((x,j)=>(i+j)+":"+(x.name||"?")).join(" "));
+    L.push(p+"_t"+t+"_tiles:");
+    T.forEach((x,i)=>{
+      const b = tileBytes(x);
+      L.push("; tuile "+i+" : "+(x.name||"sans nom")+(x.solid?" [solide]":"")+(x.dig?" [destructible]":""));
+      for(let y=0;y<TH;y++)
+        L.push("        .byte   "+b.slice(y*3,y*3+3).map(hx).join(",")+"        ; ligne "+y+"  B,G,R");
+    });
+    L.push("");
+  });
+
+  // --- cartes de chaque niveau (seulement ses ecrans utilises)
+  L.push("; --- cartes, un octet par case (index de tuile dans le theme du niveau) ----");
+  L.push("; "+MAP_W+" octets par rangee, "+MAP_H+" rangees par ecran.");
+  levels.forEach((lv,l)=>{
+    for(let sc=0;sc<lv.nScreens;sc++){
+      L.push(p+"_l"+l+"_map"+sc+":   ; niveau "+(l+1)+", ecran "+(sc+1));
+      const m = lv.screens[sc];
+      for(let y=0;y<MAP_H;y++){
+        const row = Array.from(m.slice(y*MAP_W,(y+1)*MAP_W));
+        for(let k=0;k<MAP_W;k+=20)
+          L.push("        .byte   "+row.slice(k,k+20).map(hx).join(",")+(k===0?"   ; rangee "+y:""));
+      }
+    }
+  });
+  L.push("");
+
+  // --- tables d'adresses, APRES les donnees (etiquettes deja definies)
+  L.push("; --- adresses : tuiles et proprietes de chaque theme -----------------------");
+  L.push(p+"_thm_tiles_lo:"); byteLines(themes.map((_,t)=>p+"_t"+t+"_tiles&$FF"));
+  L.push(p+"_thm_tiles_hi:"); byteLines(themes.map((_,t)=>p+"_t"+t+"_tiles>>8"));
+  L.push(p+"_thm_flags_lo:"); byteLines(themes.map((_,t)=>p+"_t"+t+"_flags&$FF"));
+  L.push(p+"_thm_flags_hi:"); byteLines(themes.map((_,t)=>p+"_t"+t+"_flags>>8"));
+  L.push("; --- cartes : 3 entrees par niveau (index niveau*3 + ecran) ; un ecran");
+  L.push("; inutilise pointe sur le premier, jamais consulte par le jeu.");
+  const mapLab = (l,sc)=>p+"_l"+l+"_map"+(sc<levels[l].nScreens?sc:0);
+  L.push(p+"_map_hi:");
+  levels.forEach((lv,l)=>L.push("        .byte   "+[0,1,2].map(sc=>mapLab(l,sc)+">>8").join(",")+"   ; niveau "+(l+1)));
+  L.push(p+"_map_lo:");
+  levels.forEach((lv,l)=>L.push("        .byte   "+[0,1,2].map(sc=>mapLab(l,sc)+"&$FF").join(",")+"   ; niveau "+(l+1)));
+  L.push("");
+  return L.join("\n");
+}
+document.getElementById("xGen").onclick = ()=>{
+  const txt = genAsm(); if(txt===null) return;
+  document.getElementById("out").value = txt;
+};
+document.getElementById("xCopy").onclick = ()=>{
+  const t = document.getElementById("out");
+  if(!t.value){ const txt = genAsm(); if(txt===null) return; t.value = txt; }
+  t.select(); document.execCommand("copy");
+};
+/* Telechargement direct : le fichier est destine a etre repris par
+   #include depuis le source principal, pas colle dedans -- on peut ainsi
+   regenerer le niveau sans retoucher le programme. */
+document.getElementById("xDl").onclick = ()=>{
+  const txt = genAsm(); if(txt===null) return;
+  document.getElementById("out").value = txt;
+  const b = new Blob([txt],{type:"text/plain"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(b); a.download = "leveldata.asm"; a.click();
+};
+
+/* ---------- projet json ---------- */
+document.getElementById("xSaveJ").onclick = ()=>{
+  storeLevel();
+  const tj = t=>({name:t.name,solid:t.solid,dig:t.dig,px:Array.from(t.px)});
+  const data = {
+    v:5, tw:TW, th:TH, curLevel,
+    themes: themes.map(T=>({name:T.name, tiles:T.tiles.map(tj)})),
+    levels: levels.map(L=>({name:L.name, theme:L.theme, nScreens:L.nScreens,
+      spawnPoint:L.spawnPoint, skills:L.skills, lemCount:L.lemCount, lemToSave:L.lemToSave,
+      screens:L.screens.map(m=>Array.from(m))}))
+  };
+  const b = new Blob([JSON.stringify(data)],{type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(b); a.download = "projet.json"; a.click();
+};
+document.getElementById("xLoadJ").onclick = ()=> document.getElementById("fJson").click();
+document.getElementById("fJson").onchange = e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    try{
+      const d = JSON.parse(r.result);
+      if(d.tw!==TW || d.th!==TH) throw new Error("taille de tuile incompatible");
+      const pt = t=>({name:t.name||"",solid:!!t.solid,dig:!!t.dig,px:Uint8Array.from(t.px)});
+      const int = (v,lo,hi,def)=>Number.isInteger(v) ? Math.max(lo,Math.min(hi,v)) : def;
+      let warn = "";
+      const pl = (o,nth)=>{
+        let ns = int(o.nScreens,1,5,1);
+        if(ns>MAX_SCR){ warn = "Des ecrans au-dela du 3e ont ete ignores (3 au plus par niveau)."; ns = MAX_SCR; }
+        const sp = o.spawnPoint && Number.isInteger(o.spawnPoint.screen)
+          ? {screen:Math.min(o.spawnPoint.screen,ns-1), col:o.spawnPoint.col|0, row:o.spawnPoint.row|0}
+          : {screen:0,col:0,row:0};
+        const count = int(o.lemCount,1,99,10);
+        return {name:o.name||"", theme:int(o.theme,0,nth-1,0), nScreens:ns,
+          screens:[0,1,2].map(k=>o.screens&&o.screens[k] ? Uint8Array.from(o.screens[k]) : newScreen()),
+          spawnPoint:sp,
+          // projets anterieurs (6 ou 7 pouvoirs) : 10 de chaque pouvoir ajoute
+          skills: Array.isArray(o.skills) && o.skills.length>=6
+            ? SKILLS.map((_,k)=> k<o.skills.length ? clampSkill(o.skills[k]) : 10)
+            : [10,10,10,10,10,10,10,10],
+          lemCount:count, lemToSave:int(o.lemToSave,0,count,Math.min(5,count))};
+      };
+      if(Array.isArray(d.themes) && Array.isArray(d.levels) && d.levels.length){
+        themes = d.themes.map(T=>({name:T.name||"", tiles:T.tiles.map(pt)}));
+        levels = d.levels.map(o=>pl(o,themes.length));
+      } else {
+        // projet d'avant les niveaux multiples (v:1 a v:4) : un theme, un niveau
+        themes = [{name:"base", tiles:d.tiles.map(pt)}];
+        levels = [pl(Object.assign({name:"niveau 1", theme:0}, d), 1)];
+      }
+      if(warn) alert(warn);
+      cur = 0; curScr = 0;
+      applyLevel(Math.min(d.curLevel|0, levels.length-1));
+    }catch(err){ alert("Fichier illisible : "+err.message); }
+  };
+  r.readAsText(f);
+};
+
+/* ---------- barre projet ---------- */
+document.getElementById("lvSel").onchange = e=> selectLevel(+e.target.value);
+document.getElementById("lvName").oninput = e=>{
+  levels[curLevel].name = e.target.value;
+  const o = document.getElementById("lvSel").options[curLevel];
+  if(o) o.textContent = (curLevel+1)+" \u2014 "+(e.target.value||"sans nom");
+};
+document.getElementById("lvNew").onclick = ()=>{
+  if(levels.length>=MAX_LEVELS){ alert(MAX_LEVELS+" niveaux au maximum."); return; }
+  storeLevel();
+  levels.push(makeLevel("niveau "+(levels.length+1), curTheme, blankScreens(curTheme)));
+  applyLevel(levels.length-1);
+};
+document.getElementById("lvDup").onclick = ()=>{
+  if(levels.length>=MAX_LEVELS){ alert(MAX_LEVELS+" niveaux au maximum."); return; }
+  storeLevel();
+  const L = levels[curLevel];
+  const c = Object.assign({}, L, {name:(L.name||"niveau")+" copie",
+    screens:L.screens.map(m=>Uint8Array.from(m)), spawnPoint:Object.assign({},L.spawnPoint),
+    skills:L.skills.slice()});
+  levels.splice(curLevel+1, 0, c);
+  applyLevel(curLevel+1);
+};
+function moveLevel(d){
+  const j = curLevel+d; if(j<0 || j>=levels.length) return;
+  storeLevel();
+  const t = levels[j]; levels[j] = levels[curLevel]; levels[curLevel] = t;
+  applyLevel(j);
+}
+document.getElementById("lvUp").onclick = ()=> moveLevel(-1);
+document.getElementById("lvDown").onclick = ()=> moveLevel(1);
+document.getElementById("lvDel").onclick = ()=>{
+  if(levels.length<=1){ alert("Il faut au moins un niveau."); return; }
+  if(!confirm("Supprimer le niveau "+(curLevel+1)+" \""+(levels[curLevel].name||"")+"\" ?")) return;
+  levels.splice(curLevel,1);
+  applyLevel(Math.min(curLevel, levels.length-1));   // pas de storeLevel : il n'existe plus
+};
+document.getElementById("thSel").onchange = e=>{
+  const t = +e.target.value; if(t===curTheme) return;
+  if(!confirm("Les cartes de ce niveau gardent leurs numeros de tuiles : avec le theme \""
+              +themes[t].name+"\", elles afficheront les tuiles de CE theme. Continuer ?")){
+    buildProjBar(); return;
+  }
+  storeLevel(); levels[curLevel].theme = t; applyLevel(curLevel);
+};
+document.getElementById("thNew").onclick = ()=>{
+  const name = prompt("Nom du nouveau theme (copie de \""+themes[curTheme].name+"\") :",
+                      themes[curTheme].name+" 2");
+  if(name===null) return;
+  storeLevel();
+  themes.push({name:name||("theme "+(themes.length+1)), tiles:themes[curTheme].tiles.map(copyTile)});
+  levels[curLevel].theme = themes.length-1;
+  applyLevel(curLevel);
+};
+document.getElementById("thRen").onclick = ()=>{
+  const name = prompt("Nouveau nom du theme :", themes[curTheme].name);
+  if(name===null) return;
+  themes[curTheme].name = name; buildProjBar();
+};
+document.getElementById("thDel").onclick = ()=>{
+  const usedT = new Set(levels.map(L=>L.theme));
+  const unused = themes.map((T,i)=>usedT.has(i)?null:T.name).filter(x=>x!==null);
+  if(!unused.length){ alert("Tous les themes sont utilises par au moins un niveau."); return; }
+  if(!confirm("Supprimer "+unused.length+" theme(s) inutilise(s) : "+unused.join(", ")+" ?")) return;
+  storeLevel();
+  const map = new Map(), kept = [];
+  themes.forEach((T,i)=>{ if(usedT.has(i)){ map.set(i, kept.length); kept.push(T); } });
+  themes = kept;
+  levels.forEach(L=>{ L.theme = map.get(L.theme); });
+  applyLevel(curLevel);
+};
+
+/* ---------- annuler / retablir ----------
+   Une "photo" = les tuiles du theme courant (copie profonde) + les cartes et
+   le point de depart de CHAQUE niveau qui utilise ce theme (le nettoyage et
+   le remplacement de tuile touchent toutes ces cartes). Prise AVANT une
+   action, gardee seulement si l'action a reellement change quelque chose :
+   une confirmation refusee ne cree pas d'etape vide. Un trait de peinture
+   (appui, glisser, relacher) compte pour une seule etape. */
+const UNDO_MAX = 40;
+const undoStack = [], redoStack = [];
+function snapshot(){
+  storeLevel();
+  const th = themes[curTheme];
+  return {th, cur, tiles: th.tiles.map(copyTile),
+          lv: levels.filter(L=>L.theme===curTheme).map(L=>({L,
+                scr: L.screens.map(m=>Uint8Array.from(m)),
+                sp: {screen:L.spawnPoint.screen, col:L.spawnPoint.col, row:L.spawnPoint.row}}))};
+}
+function sameAsNow(sn){
+  storeLevel();
+  const T = sn.th.tiles;
+  if(T.length!==sn.tiles.length) return false;
+  for(let i=0;i<T.length;i++){
+    const a=T[i], b=sn.tiles[i];
+    if(a.solid!==b.solid || a.dig!==b.dig || a.name!==b.name) return false;
+    for(let k=0;k<a.px.length;k++) if(a.px[k]!==b.px[k]) return false;
+  }
+  for(const {L,scr,sp} of sn.lv){
+    if(L.spawnPoint.screen!==sp.screen || L.spawnPoint.col!==sp.col || L.spawnPoint.row!==sp.row) return false;
+    for(let s=0;s<scr.length;s++){ const m=L.screens[s];
+      for(let k=0;k<m.length;k++) if(m[k]!==scr[s][k]) return false; }
+  }
+  return true;
+}
+let pending = null;                     // photo prise au debut d'un trait
+function beginEdit(){ pending = snapshot(); }
+function commitEdit(){
+  if(!pending) return;
+  if(!sameAsNow(pending)){
+    undoStack.push(pending); if(undoStack.length>UNDO_MAX) undoStack.shift();
+    redoStack.length = 0;
+  }
+  pending = null; updUndo();
+}
+function withUndo(fn){ return (...a)=>{ beginEdit(); const r = fn(...a); commitEdit(); return r; }; }
+function restoreSnap(sn){
+  sn.th.tiles = sn.tiles;
+  sn.lv.forEach(({L,scr,sp})=>{ L.screens = scr; L.spawnPoint = sp; });
+  if(levels.indexOf(levels[curLevel])>=0) applyLevel(curLevel);
+  cur = Math.max(0, Math.min(sn.cur, tiles.length-1));
+  drawEdit(); drawTileList(); loadProps(); drawMap(); buildProjBar();
+}
+function undo(){
+  if(!undoStack.length) return;
+  const sn = undoStack.pop(); redoStack.push(snapshotOf(sn)); restoreSnap(sn); updUndo();
+}
+function redo(){
+  if(!redoStack.length) return;
+  const sn = redoStack.pop(); undoStack.push(snapshotOf(sn)); restoreSnap(sn); updUndo();
+}
+/* photo de l'etat ACTUEL du meme theme que sn (pour pouvoir revenir) */
+function snapshotOf(sn){
+  const keep = curTheme; curTheme = themes.indexOf(sn.th);
+  const r = snapshot(); curTheme = keep; return r;
+}
+function updUndo(){
+  document.getElementById("undoBtn").disabled = !undoStack.length;
+  document.getElementById("redoBtn").disabled = !redoStack.length;
+}
+document.getElementById("undoBtn").onclick = undo;
+document.getElementById("redoBtn").onclick = redo;
+document.addEventListener("keydown", e=>{
+  const tag = (e.target.tagName||"").toUpperCase();
+  if(tag==="INPUT" || tag==="TEXTAREA" || tag==="SELECT") return;   // annulation du texte
+  if(!(e.ctrlKey||e.metaKey)) return;
+  const k = e.key.toLowerCase();
+  if(k==="z" && !e.shiftKey){ e.preventDefault(); undo(); }
+  else if(k==="y" || (k==="z" && e.shiftKey)){ e.preventDefault(); redo(); }
+});
+/* traits de peinture : carte et editeur de tuile */
+mp.addEventListener("mousedown", ()=>{ if(!placingSpawn && !placingPick) beginEdit(); }, true);
+ed.addEventListener("mousedown", ()=>beginEdit(), true);
+window.addEventListener("mouseup", ()=>{ if(pending){ commitEdit(); drawTileList(); } });
+/* le point de depart se place par un clic sur la carte */
+{ const f = mapSpawnAt; mapSpawnAt = withUndo(f); }
+/* boutons qui modifient tuiles ou cartes */
+["tCleanup","tMirror","tClear","tpCapture","tFill","tPaste","lClear","lImportApply","lFillRow"].forEach(id=>{
+  const el = document.getElementById(id); if(!el || !el.onclick) return;
+  el.onclick = withUndo(el.onclick);
+});
+["pSolid","pDig"].forEach(id=>{
+  const el = document.getElementById(id); const f = el.onchange; el.onchange = withUndo(f);
+});
+/* remplacer une tuile partout */
+document.getElementById("pReplBtn").onclick = withUndo(()=>{
+  const n = parseInt(document.getElementById("pRepl").value,10);
+  if(!(n>=0 && n<tiles.length) || n===cur){ alert("Numero de tuile invalide (0 a "+(tiles.length-1)+", autre que "+cur+")."); return; }
+  if(isSystemTile(tiles[cur]) && !confirm("\""+tiles[cur].name+"\" est une tuile systeme (posee par le jeu). La remplacer quand meme dans les cartes ?")) return;
+  storeLevel();
+  let k = 0;
+  levels.forEach(L=>{ if(L.theme!==curTheme) return;
+    L.screens.forEach(m=>{ for(let i=0;i<m.length;i++) if(m[i]===cur){ m[i]=n; k++; } }); });
+  drawMap(); drawTileList();
+  alert(k+" case(s) : tuile "+cur+" remplacee par la tuile "+n+".");
+});
+document.getElementById("tOrder").onchange = ()=>drawTileList();
+
+/* ---------- localiser une tuile dans le niveau ---------- */
+function hlUpdate(){
+  const info = document.getElementById("lHlInfo"), off = document.getElementById("lHlOff");
+  if(hlTile<0 || hlTile>=tiles.length){ hlTile=-1; info.textContent=""; off.style.display="none"; return; }
+  storeLevel();
+  const here = screens.slice(0,nScreens).map(m=>m.reduce((a,v)=>a+(v===hlTile),0));
+  const tot = here.reduce((a,b)=>a+b,0);
+  const autres = levels.map((L,i)=>[L,i]).filter(([L,i])=>i!==curLevel && L.theme===curTheme)
+    .map(([L,i])=>[i, L.screens.slice(0,L.nScreens).reduce((a,m)=>a+m.reduce((x,v)=>x+(v===hlTile),0),0)])
+    .filter(([i,n])=>n>0).map(([i,n])=>"niveau "+(i+1)+" : "+n);
+  info.textContent = "Tuile "+hlTile+" ("+(tiles[hlTile].name||"sans nom")+") : "+tot+" case(s) dans ce niveau"
+    +(nScreens>1 ? " -- "+here.map((n,k)=>"ecran "+(k+1)+" : "+n).join(", ") : "")
+    +(autres.length ? " | ailleurs : "+autres.join(", ") : "");
+  off.style.display = "";
+}
+document.getElementById("pLocate").onclick = ()=>{
+  hlTile = cur;
+  // premier ecran du niveau qui contient la tuile
+  for(let k=0;k<nScreens;k++) if(screens[k].includes(hlTile)){ curScr = k; break; }
+  buildScrBtns(); drawMap(); hlUpdate();
+  document.querySelector('.tab[data-t="level"]').click();
+};
+document.getElementById("lHlOff").onclick = ()=>{ hlTile = -1; buildScrBtns(); drawMap(); hlUpdate(); };
+
+/* ---------- fusionner les tuiles en double ---------- */
+/* retire les tuiles de l'ensemble 'gone' et renumerote les cartes de tous
+   les niveaux du theme (toute case vers une tuile retiree doit deja avoir
+   ete redirigee) */
+function removeTiles(gone){
+  const oldToNew = new Map(), kept = [];
+  tiles.forEach((t,i)=>{ if(!gone.has(i)){ oldToNew.set(i, kept.length); kept.push(t); } });
+  levels.filter(L=>L.theme===curTheme).forEach(L=>L.screens.forEach(m=>{
+    for(let i=0;i<m.length;i++) m[i] = oldToNew.get(m[i]) ?? 0;
+  }));
+  themes[curTheme].tiles = kept; tiles = kept;
+  cur = oldToNew.get(cur) ?? 0;
+  if(hlTile>=0) hlTile = oldToNew.get(hlTile) ?? -1;
+}
+document.getElementById("tDedup").onclick = withUndo(()=>{
+  storeLevel();
+  const groups = new Map();
+  tiles.forEach((t,i)=>{
+    if(isSystemTile(t)) return;                  // roles distincts pour le jeu
+    const key = t.px.join(",");
+    if(!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(i);
+  });
+  const dups = [...groups.values()].filter(g=>g.length>1);
+  if(!dups.length){ alert("Aucune tuile en double."); return; }
+  const n = dups.reduce((a,g)=>a+g.length-1,0);
+  const lignes = dups.slice(0,12).map(g=>{
+    const k = g[0], diff = g.slice(1).filter(i=>tiles[i].solid!==tiles[k].solid || tiles[i].dig!==tiles[k].dig);
+    return "  "+g.slice(1).join(", ")+" -> "+k+(diff.length ? "  (proprietes differentes : celles de "+k+" gardees)" : "");
+  });
+  if(!confirm(n+" tuile(s) en double seront fusionnees dans la premiere de leur groupe :\n"
+      +lignes.join("\n")+(dups.length>12?"\n  ...":"")+"\n\nContinuer ?")) return;
+  const gone = new Set();
+  dups.forEach(g=>{
+    const k = g[0], autres = new Set(g.slice(1));
+    levels.filter(L=>L.theme===curTheme).forEach(L=>L.screens.forEach(m=>{
+      for(let i=0;i<m.length;i++) if(autres.has(m[i])) m[i] = k;
+    }));
+    autres.forEach(i=>gone.add(i));
+  });
+  removeTiles(gone);
+  drawEdit(); drawTileList(); loadProps(); drawMap(); buildProjBar(); hlUpdate();
+  alert(n+" tuile(s) fusionnee(s) ; "+tiles.length+" restante(s).");
+});
+
+/* ---------- demarrage ---------- */
+seed();
+buildPal(); drawEdit(); drawTileList(); loadProps(); buildSkillInputs(); updUndo();
+document.getElementById("lemCount").onchange = syncLemInputs;
+document.getElementById("lemToSave").onchange = syncLemInputs;
+buildScrBtns(); drawMap();
+</script>
+</body>
+</html>

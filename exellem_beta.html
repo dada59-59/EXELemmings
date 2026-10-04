@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>EXELLEM - editeur de lemmings EXL100</title>
+<style>
+  :root{
+    --bg:#14161a; --panel:#1d2027; --panel2:#242832; --line:#333947;
+    --fg:#e6e8ec; --dim:#9aa3b2; --accent:#7bd88f; --warn:#e6a15a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif;
+       background:var(--bg);color:var(--fg)}
+  header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);
+         display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.02em}
+  .sub{color:var(--dim);font-size:12px}
+  .tabs{display:flex;gap:4px;margin-left:auto}
+  .tab{padding:6px 14px;background:var(--panel2);border:1px solid var(--line);
+       border-radius:4px;cursor:pointer;font-size:13px}
+  .tab.on{background:var(--accent);color:#08130c;border-color:var(--accent);font-weight:600}
+  main{padding:16px;display:none}
+  main.on{display:block}
+  .row{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px}
+  .card h2{font-size:12px;margin:0 0 10px;color:var(--dim);font-weight:600;
+           text-transform:uppercase;letter-spacing:.06em}
+  canvas{display:block;image-rendering:pixelated;cursor:crosshair}
+  button{background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+         border-radius:4px;padding:6px 12px;cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#08130c;border-color:var(--accent);font-weight:600}
+  button.danger:hover{border-color:#e06c6c}
+  label{font-size:12px;color:var(--dim);display:block;margin-bottom:4px}
+  input[type=text],input[type=number],select{background:#0e1014;color:var(--fg);
+    border:1px solid var(--line);border-radius:4px;padding:5px 8px;font-size:13px}
+  .pal{display:grid;grid-template-columns:repeat(3,36px);gap:5px}
+  .sw{width:36px;height:28px;border:2px solid #000;border-radius:3px;cursor:pointer;
+      position:relative}
+  .sw.on{border-color:var(--fg)}
+  .sw span{position:absolute;bottom:1px;right:3px;font-size:9px;color:#fff;
+           text-shadow:0 0 3px #000,0 0 2px #000}
+  .sw.tr{background:
+    linear-gradient(45deg,#555 25%,transparent 25%,transparent 75%,#555 75%),
+    linear-gradient(45deg,#555 25%,#2a2a2a 25%,#2a2a2a 75%,#555 75%);
+    background-size:10px 10px;background-position:0 0,5px 5px}
+  .list{display:flex;flex-direction:column;gap:3px;max-height:300px;overflow-y:auto}
+  .li{padding:6px 9px;background:var(--panel2);border:1px solid var(--line);
+      border-radius:4px;cursor:pointer;font-size:13px;display:flex;
+      justify-content:space-between;gap:8px}
+  .li.on{border-color:var(--accent);background:#1b2a1f}
+  .li small{color:var(--dim)}
+  .frames{display:flex;flex-wrap:wrap;gap:5px;max-width:460px}
+  .fw{border:2px solid transparent;border-radius:3px;cursor:pointer;padding:2px;
+      position:relative;background:
+      linear-gradient(45deg,#3a3a3a 25%,transparent 25%,transparent 75%,#3a3a3a 75%),
+      linear-gradient(45deg,#3a3a3a 25%,#222 25%,#222 75%,#3a3a3a 75%);
+      background-size:8px 8px;background-position:0 0,4px 4px}
+  .fw.on{border-color:var(--accent)}
+  .fw b{position:absolute;top:-1px;left:2px;font-size:8px;color:#fff;
+        text-shadow:0 0 3px #000}
+  textarea{width:100%;height:300px;background:#0e1014;color:#cfe3f5;border:1px solid var(--line);
+           border-radius:4px;padding:10px;font:12px/1.4 ui-monospace,Consolas,monospace;
+           white-space:pre;overflow:auto}
+  .hint{color:var(--dim);font-size:12px;margin-top:8px}
+  .warn{color:var(--warn)}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .prev{background:#0b1520;border:1px solid var(--line);border-radius:4px;padding:10px;
+        display:flex;gap:14px;align-items:center}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>EXELLEM</h1>
+  <span class="sub">sprites &amp; animations de lemmings &middot; masque de transparence &middot; EXL100</span>
+  <div class="tabs">
+    <div class="tab on" data-t="edit">Edition</div>
+    <div class="tab" data-t="export">Export</div>
+  </div>
+</header>
+
+<!-- ================= EDITION ================= -->
+<main id="m-edit" class="on">
+<div class="bar">
+  <label style="margin:0">Largeur</label>
+  <span class="sub" style="padding:5px 8px;border:1px solid var(--line);
+        border-radius:4px;background:#0e1014">8 px &mdash; 1 segment</span>
+  <label style="margin:0 0 0 10px">Hauteur</label>
+  <input type="number" id="sH" min="4" max="24" value="10" style="width:64px">
+  <span class="sub">&mdash; taille commune a tous les types</span>
+</div>
+
+<div class="row">
+
+  <div class="card">
+    <h2>Types de lemmings</h2>
+    <div class="list" id="types" style="width:190px"></div>
+    <div class="bar" style="margin:10px 0 0">
+      <button id="tAdd">+</button>
+      <button id="tDel" class="danger">Supprimer</button>
+    </div>
+    <label style="margin-top:12px">Nom</label>
+    <input type="text" id="tName" style="width:170px">
+    <label style="margin-top:8px">Vitesse d'animation</label>
+    <input type="number" id="tSpeed" min="1" max="60" value="6" style="width:64px">
+    <div class="hint">images de jeu entre deux vignettes</div>
+    <label style="margin-top:8px" for="tLoop">
+      <input type="checkbox" id="tLoop" checked> Anime en boucle
+    </label>
+    <label style="margin-top:12px">Copier les vignettes depuis</label>
+    <select id="tSrc" style="width:170px"></select>
+    <div class="bar" style="margin:6px 0 0">
+      <button id="tCopyFrom">Copier dans ce type</button>
+    </div>
+    <div class="hint">remplace toutes les vignettes de ce type<br>
+      (et sa vitesse) par celles du type choisi</div>
+  </div>
+
+  <div class="card">
+    <h2>Dessin &mdash; vignette <span id="fIdx">0</span></h2>
+    <canvas id="edit" width="384" height="240"></canvas>
+    <div class="bar" style="margin:10px 0 0">
+      <button id="fClear">Effacer</button>
+      <button id="fCopy">Copier</button>
+      <button id="fPaste">Coller</button>
+      <button id="fFlip">Miroir</button>
+      <button id="fFlipAll" title="Retourne toutes les vignettes de ce type">Miroir (toutes)</button>
+    </div>
+    <div class="hint">Clic gauche : couleur &middot; clic droit : transparent<br>
+      <b style="color:var(--accent)">Dessinez le lemming tourn&eacute; vers la DROITE</b> (le grimpeur :
+      mur &agrave; sa droite). Le jeu fait lui-m&ecirc;me le miroir quand il va vers la gauche.</div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>Palette</h2>
+      <div class="pal" id="pal"></div>
+      <div class="hint">
+        Le transparent laisse voir le d&eacute;cor :<br>
+        il met le bit de masque &agrave; 0.
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h2>Vignettes</h2>
+      <div class="frames" id="frames"></div>
+      <div class="bar" style="margin:10px 0 0">
+        <button id="fAdd">+ Vignette</button>
+        <button id="fDup">Dupliquer</button>
+        <button id="fDel" class="danger">Supprimer</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h2>Aper&ccedil;u anim&eacute;</h2>
+      <div class="prev">
+        <canvas id="prev" width="96" height="120"></canvas>
+        <div>
+          <button id="pPlay" class="primary">Lecture</button>
+          <div class="hint" id="pInfo" style="margin-top:6px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</main>
+
+<!-- ================= EXPORT ================= -->
+<main id="m-export">
+<div class="bar">
+  <label style="margin:0">Pr&eacute;fixe des symboles</label>
+  <input type="text" id="xPrefix" value="lem" style="width:80px">
+  <button class="primary" id="xGen">G&eacute;n&eacute;rer</button>
+  <button id="xCopy">Copier</button>
+  <button id="xDl">T&eacute;l&eacute;charger lemdata.asm</button>
+  <button id="xSaveJ">Sauver le projet (.json)</button>
+  <button id="xLoadJ">Charger un projet</button>
+  <input type="file" id="fJson" accept=".json" style="display:none">
+</div>
+<textarea id="out" spellcheck="false"></textarea>
+<div class="hint">
+  Format de vignette conforme a la sp&eacute;cification du moteur bitmap :
+  en-t&ecirc;te <code>wseg, hblock</code> puis, par ligne et par segment de 8 pixels,
+  les quatre octets <code>M, B, G, R</code>.
+  Le moteur applique <code>dst = (fond &amp; ~M) | (sprite &amp; M)</code> par plan.
+  <span class="warn">Donn&eacute;es non test&eacute;es sur machine.</span>
+  <br><br>Usage : enregistrer <code>lemdata.asm</code> a cote du source, puis
+  ajouter <code>#include &quot;lemdata.asm&quot;</code> dans la zone de
+  donn&eacute;es (avant <code>#include &quot;mixt_api.asm&quot;</code>).
+</div>
+</main>
+
+<script>
+"use strict";
+
+/* ---------- constantes materielles ----------
+   Mode bitmap TMS3556 : un segment = 8 pixels, code sur 3 plans (Bleu, Vert,
+   Rouge) -- ordre confirme par le manuel, figure 3.18. bit 7 = pixel gauche.
+   Couleur = (B<<2)|(G<<1)|R.
+   Les sprites transparents ajoutent un plan de MASQUE devant les trois :
+   bit a 1 = le pixel du sprite remplace le fond, bit a 0 = le fond reste
+   visible (spec du moteur bitmap, section 9).                           */
+const SEG = 8;
+const TRANS = -1;                         // valeur "pixel transparent"
+const PALETTE = [
+  [0,0,0],[255,0,0],[0,255,0],[255,255,0],
+  [0,0,255],[255,0,255],[0,255,255],[255,255,255]
+];
+const CNAMES = ["noir","rouge","vert","jaune","bleu","magenta","cyan","blanc"];
+
+/* ---------- etat ---------- */
+/* Largeur FIGEE a 1 segment (8 px). Un segment est l'unite indivisible du
+   mode bitmap : le sprite couvre alors exactement une tuile de decor, donc
+   il tombe proprement dans un puits d'une seule tuile, sans que la moitie
+   du personnage se retrouve dans la paroi. Un sprite de 16 px obligeait a
+   ne tester qu'un segment sur deux pour la collision, avec ce decalage
+   visuel a la cle. */
+const W = 1;
+let H = 10;                               // hauteur, en lignes de balayage
+let types = [];                           // {name, speed, loop, frames:[Int8Array]}
+let ti = 0, fi = 0;                       // type et vignette selectionnes
+let color = 7, clip = null;
+let playing = false, playTimer = null, playFrame = 0;
+
+const NPIX = ()=> W*SEG*H;
+function newFrame(){ const a = new Int8Array(NPIX()); a.fill(TRANS); return a; }
+/* --- competences PERMANENTES visibles sur le marcheur ---------------------
+   Le sprite regarde vers la droite (le miroir sert pour la gauche) : le dos
+   est a gauche du corps. Ces marques s'AJOUTENT aux vignettes du marcheur :
+   ses pas, sa silhouette, restent les votres. */
+function markPut(a,x,y,c){ const w=W*SEG; if(x>=0&&y>=0&&x<w&&y<H) a[y*w+x]=c; }
+function addFloatMark(a){            // parachute plie : sac blanc dans le dos
+  const cx = (W*SEG>>1)-1;
+  for(let y=3;y<=5;y++){ markPut(a,cx-2,y,7); markPut(a,cx-1,y,7); }
+  markPut(a,cx-1,2,1);                // bretelle rouge
+}
+function addClimbMark(a){            // crochet de grimpe cyan tenu devant
+  const cx = (W*SEG>>1)-1;
+  markPut(a,cx+2,4,6); markPut(a,cx+3,3,6); markPut(a,cx+3,2,6); markPut(a,cx+2,2,6);
+}
+/* variantes du marcheur, dans l'ordre des types 12, 13, 14 du jeu */
+const WALK_VARIANTS = [["marche parachute",[addFloatMark]],
+                       ["marche grimpeur",[addClimbMark]],
+                       ["marche athlete",[addFloatMark,addClimbMark]]];
+function makeWalkVariant(walk, name, marks){
+  return {name, speed:walk.speed, loop:walk.loop,
+          frames:walk.frames.map(f=>{ const a=Int8Array.from(f); marks.forEach(m=>m(a)); return a; })};
+}
+function newType(name){ return {name:name||"type", speed:6, loop:true, frames:[newFrame()]}; }
+
+/* Jeu de depart : les etats de base d'un lemming. Formes volontairement
+   simples -- ce sont des reperes, pas du pixel art fini. */
+function seed(){
+  types = [];
+  const mk = (name,speed,loop,painter,nf)=>{
+    const t = newType(name); t.speed=speed; t.loop=loop; t.frames=[];
+    for(let f=0;f<nf;f++){
+      const a = newFrame();
+      painter(a,f);
+      t.frames.push(a);
+    }
+    types.push(t);
+  };
+  const wpx = ()=> W*SEG;
+  const put = (a,x,y,c)=>{ if(x>=0&&y>=0&&x<wpx()&&y<H) a[y*wpx()+x]=c; };
+  const body = (a,cx,c)=>{
+    for(let y=2;y<H-2;y++){ put(a,cx,y,c); put(a,cx+1,y,c); }   // torse
+    put(a,cx,0,3); put(a,cx+1,0,3);                              // cheveux
+    put(a,cx,1,7); put(a,cx+1,1,7);                              // tete
+  };
+  mk("marche",6,true,(a,f)=>{
+    const cx = (W*SEG>>1)-1;
+    body(a,cx,2);
+    const o = f?1:-1;                                            // jambes
+    put(a,cx-1+ (o<0?0:1), H-2, 2); put(a,cx+ (o<0?0:1), H-1, 2);
+  },2);
+  mk("chute",4,true,(a,f)=>{
+    const cx = (W*SEG>>1)-1;
+    body(a,cx,2);
+    put(a,cx-1,2+(f?1:0),2); put(a,cx+2,2+(f?1:0),2);            // bras leves
+  },2);                                                          // tiennent
+                                                                 // juste dans
+                                                                 // les 8 px
+  mk("creuse",5,true,(a,f)=>{
+    const cx = (W*SEG>>1)-1;
+    body(a,cx,2);
+    for(let x=cx-1;x<=cx+2;x++) put(a,x,H-1-(f?0:1),6);          // outil
+  },2);
+  mk("bloque",8,true,(a,f)=>{
+    const cx = (W*SEG>>1)-1;
+    body(a,cx,5);
+    for(let y=3;y<H-2;y++){ put(a,cx-1,y,f?7:5); put(a,cx+2,y,f?7:5); }
+  },2);
+  mk("meurt",6,false,(a,f)=>{
+    const cx = (W*SEG>>1)-1;
+    for(let y=H-1-f;y<H;y++){ put(a,cx,y,1); put(a,cx+1,y,1); }
+  },3);
+  /* Parachutiste : voile en haut, suspentes, corps en dessous. Le type doit
+     rester le SIXIEME : l'etat ST_FLOAT vaut 5 et sert d'index direct dans
+     la table de vignettes. */
+  mk("flotte",5,true,(a,f)=>{
+    const cx = (W*SEG>>1)-1;
+    for(let x=1;x<W*SEG-1;x++) put(a,x,0,7);      // voile
+    put(a,0,1,7); put(a,W*SEG-1,1,7);
+    put(a,cx-1+(f?1:0),2,6); put(a,cx+2-(f?1:0),2,6);  // suspentes
+    for(let y=4;y<H;y++){ put(a,cx,y,2); put(a,cx+1,y,2); }
+    put(a,cx,3,7); put(a,cx+1,3,7);               // tete
+  },2);
+  /* Frappeur : creuse a l'horizontale. Ajoute EN DERNIER a dessein : les
+     etats servent d'index dans la table de vignettes, inserer un type au
+     milieu decalerait tous les suivants et casserait le parachutiste
+     (ST_FLOAT = 5). ST_BASH vaut donc 6. */
+  mk("frappe",5,true,(a,f)=>{
+    const cx = (W*SEG>>1)-1;
+    body(a,cx,2);
+    for(let y=H-4;y<H-1;y++) put(a,cx+2,y,6);      // outil devant
+    put(a,cx+2+(f?1:0),H-3,6);
+  },2);
+  /* Explosion : gerbe de pixels rouges puis jaunes. Ajoutee EN DERNIER
+     (type 7) : inserer un type au milieu decalerait tous les suivants et
+     casserait les etats deja en service. */
+  mk("explose",3,false,(a,f)=>{
+    const cx = (W*SEG>>1)-1, cy = H>>1;
+    const pts = [
+      [[0,0],[1,0],[0,1],[1,1]],                                  // noyau
+      [[-1,-1],[0,-1],[1,-1],[2,-1],[-1,0],[2,0],
+       [-1,1],[2,1],[-1,2],[0,2],[1,2],[2,2]],                    // couronne
+      [[-2,-3],[3,-3],[-3,0],[4,0],[-2,3],[3,3],[0,-4],[1,4]]     // eclats
+    ][f];
+    pts.forEach(([dx,dy])=> put(a,cx+dx,cy+dy, f===2?3:1));
+  },3);
+
+  /* Constructeur : pose une brique devant lui. Ajoute EN DERNIER (type 8). */
+  mk("construit",5,true,(a,f)=>{
+    const cx = (W*SEG>>1)-1;
+    body(a,cx,2);
+    for(let x=cx+1;x<W*SEG;x++) put(a,x,H-1-(f?0:1),3);   // brique posee
+    put(a,cx+2,H-3-(f?1:0),7);                            // bras
+  },2);
+
+  /* En attente : plus de briques, bras leves pour signaler qu'on peut le
+     reselectionner (construire plus haut, ou toute autre competence).
+     Ajoute EN DERNIER (type 9) -- ST_WAIT vaut 9 dans mixpix.asm et sert
+     d'index direct ici, comme pour tous les types precedents. */
+  mk("attend",4,true,(a,f)=>{
+    const cx = (W*SEG>>1)-1;
+    body(a,cx,2);
+    put(a,cx-1,1+(f?0:1),7); put(a,cx+2,1+(f?0:1),7);     // bras leves,
+                                                           // leger balancement
+  },2);
+
+  /* Grimpeur : face a la paroi (a droite, le miroir sert pour la gauche),
+     mains et pied poses contre le bord du segment, en alternance. Ajoute EN
+     DERNIER (type 10) -- ST_CLIMB vaut 10 dans mixpix.asm. */
+  mk("grimpe",4,true,(a,f)=>{
+    const cx = (W*SEG>>1)-1;
+    body(a,cx,2);
+    put(a,cx+3,1+(f?0:2),7); put(a,cx+4,1+(f?0:2),7);     // mains a la paroi
+    put(a,cx+3,H-3-(f?2:0),2); put(a,cx+4,H-3-(f?2:0),2); // pied qui pousse
+  },2);
+
+  /* Mineur : pioche levee au-dessus de la tete, puis abattue devant lui et
+     vers le bas (il creuse en diagonale). Type 11 = ST_MINE dans mixpix.asm.
+     Le jeu donne un coup de pioche a chaque passage sur la DERNIERE vignette :
+     plus il y a de vignettes, plus il creuse lentement. */
+  mk("mine",4,true,(a,f)=>{
+    const cx = (W*SEG>>1)-1;
+    body(a,cx,2);
+    // [x, y, couleur] : 3 = manche jaune, 1 = fer rouge ; tout reste dans
+    // le segment (x <= 7), sinon le pixel est rogne a l'export
+    const P = [ [[cx+2,2,3],[cx+2,1,3],[cx+3,0,1],[cx+4,0,1]],   // levee
+                [[cx+2,3,3],[cx+3,2,3],[cx+4,1,1],[cx+4,2,1]],   // elan
+                [[cx+2,4,3],[cx+3,5,3],[cx+4,6,1],[cx+4,7,1]],   // abattue
+                [[cx+2,3,3],[cx+3,3,3],[cx+4,4,1],[cx+4,3,1]] ][f]; // retour
+    P.forEach(([x,y,c])=>put(a,x,y,c));
+  },4);
+
+  /* Types 12 a 14 : le MARCHEUR avec ses competences permanentes, choisi
+     par le jeu d'apres ce que possede le lemming (mixpix : lem_sprite_type).
+     Construits a partir des vignettes du marcheur (type 0) + une marque. */
+  WALK_VARIANTS.forEach(([name,marks])=>types.push(makeWalkVariant(types[0],name,marks)));
+}
+
+/* ---------- onglets ---------- */
+document.querySelectorAll(".tab").forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+    document.querySelectorAll("main").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on");
+    document.getElementById("m-"+b.dataset.t).classList.add("on");
+  };
+});
+
+/* ---------- palette ---------- */
+function buildPal(){
+  const p = document.getElementById("pal");
+  p.innerHTML = "";
+  const tr = document.createElement("div");
+  tr.className = "sw tr"+(color===TRANS?" on":"");
+  tr.title = "transparent";
+  tr.onclick = ()=>{ color=TRANS; buildPal(); };
+  p.appendChild(tr);
+  PALETTE.forEach((c,i)=>{
+    const d = document.createElement("div");
+    d.className = "sw"+(i===color?" on":"");
+    d.style.background = `rgb(${c[0]},${c[1]},${c[2]})`;
+    d.title = i+" "+CNAMES[i];
+    d.innerHTML = "<span>"+i+"</span>";
+    d.onclick = ()=>{ color=i; buildPal(); };
+    p.appendChild(d);
+  });
+}
+
+/* ---------- rendu d'une vignette ---------- */
+function paintFrame(g, fr, px){
+  const wpx = W*SEG;
+  for(let y=0;y<H;y++) for(let x=0;x<wpx;x++){
+    const v = fr[y*wpx+x];
+    if(v===TRANS){                                   // damier = transparent
+      g.fillStyle = (((x+y)&1) ? "#3a3a3a" : "#222");
+    }else{
+      const c = PALETTE[v];
+      g.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+    }
+    g.fillRect(x*px,y*px,px,px);
+  }
+}
+
+/* ---------- editeur ---------- */
+const ed = document.getElementById("edit"), ec = ed.getContext("2d");
+function editPx(){ return Math.floor(Math.min(384/(W*SEG), 240/H)); }
+function drawEdit(){
+  const px = editPx(), wpx = W*SEG;
+  ed.width = wpx*px; ed.height = H*px;
+  paintFrame(ec, types[ti].frames[fi], px);
+  ec.strokeStyle = "rgba(255,255,255,.13)";
+  for(let x=0;x<=wpx;x++){ec.beginPath();ec.moveTo(x*px+.5,0);ec.lineTo(x*px+.5,H*px);ec.stroke();}
+  for(let y=0;y<=H;y++){ec.beginPath();ec.moveTo(0,y*px+.5);ec.lineTo(wpx*px,y*px+.5);ec.stroke();}
+  /* separation des segments de 8 px : rappel de la granularite VDP */
+  ec.strokeStyle = "rgba(122,216,143,.45)"; ec.lineWidth = 1;
+  for(let s=1;s<W;s++){
+    ec.beginPath(); ec.moveTo(s*SEG*px+.5,0); ec.lineTo(s*SEG*px+.5,H*px); ec.stroke();
+  }
+  document.getElementById("fIdx").textContent = fi;
+}
+let painting=false;
+function paintAt(e,erase){
+  const r = ed.getBoundingClientRect(), wpx = W*SEG;
+  const x = Math.floor((e.clientX-r.left)/r.width*wpx);
+  const y = Math.floor((e.clientY-r.top)/r.height*H);
+  if(x<0||y<0||x>=wpx||y>=H) return;
+  types[ti].frames[fi][y*wpx+x] = erase?TRANS:color;
+  drawEdit(); drawFrames();
+}
+ed.onmousedown = e=>{ painting=true; paintAt(e,e.button===2); };
+ed.onmousemove = e=>{ if(painting) paintAt(e,e.buttons===2); };
+window.addEventListener("mouseup",()=>painting=false);
+ed.oncontextmenu = e=>e.preventDefault();
+
+/* ---------- listes ---------- */
+function drawTypes(){
+  const box = document.getElementById("types");
+  box.innerHTML = "";
+  types.forEach((t,i)=>{
+    const d = document.createElement("div");
+    d.className = "li"+(i===ti?" on":"");
+    d.innerHTML = "<span>"+(t.name||"?")+"</span><small>"+t.frames.length+" vign.</small>";
+    d.onclick = ()=>{ ti=i; fi=0; stop(); drawAll(); };
+    box.appendChild(d);
+  });
+  const t = types[ti];
+  document.getElementById("tName").value  = t.name;
+  document.getElementById("tSpeed").value = t.speed;
+  document.getElementById("tLoop").checked= t.loop;
+  const src = document.getElementById("tSrc");
+  const keep = src.value;
+  src.innerHTML = "";
+  types.forEach((u,i)=>{
+    if(i===ti) return;
+    const o = document.createElement("option");
+    o.value = i; o.textContent = i+" : "+(u.name||"?");
+    src.appendChild(o);
+  });
+  if(keep!=="" && [...src.options].some(o=>o.value===keep)) src.value = keep;
+  else { const w = [...src.options].find(o=>o.value==="0"); if(w) src.value = "0"; }
+}
+function drawFrames(){
+  const box = document.getElementById("frames");
+  box.innerHTML = "";
+  types[ti].frames.forEach((fr,i)=>{
+    const w = document.createElement("div");
+    w.className = "fw"+(i===fi?" on":"");
+    const c = document.createElement("canvas");
+    const z = 4;
+    c.width = W*SEG*z; c.height = H*z;
+    paintFrame(c.getContext("2d"), fr, z);
+    w.appendChild(c);
+    const b = document.createElement("b"); b.textContent = i; w.appendChild(b);
+    w.onclick = ()=>{ fi=i; drawEdit(); drawFrames(); };
+    box.appendChild(w);
+  });
+}
+function drawPrev(){
+  const c = document.getElementById("prev"), g = c.getContext("2d");
+  const z = 6;
+  c.width = W*SEG*z; c.height = H*z;
+  const t = types[ti];
+  const fr = t.frames[playing ? (playFrame % t.frames.length) : fi];
+  paintFrame(g, fr, z);
+  document.getElementById("pInfo").textContent =
+    t.frames.length+" vignette(s), vitesse "+t.speed+(t.loop?", en boucle":", une fois");
+}
+function drawAll(){ drawTypes(); drawEdit(); drawFrames(); drawPrev(); }
+
+/* ---------- champs ---------- */
+document.getElementById("tName").oninput  = e=>{ types[ti].name = e.target.value; drawTypes(); };
+document.getElementById("tSpeed").onchange= e=>{
+  types[ti].speed = Math.max(1,Math.min(60,+e.target.value||1));
+  e.target.value = types[ti].speed; drawPrev();
+};
+document.getElementById("tLoop").onchange = e=>{ types[ti].loop = e.target.checked; drawPrev(); };
+
+document.getElementById("tCopyFrom").onclick = ()=>{
+  const k = +document.getElementById("tSrc").value;
+  if(!(k>=0 && k<types.length) || k===ti) return;
+  if(!confirm("Remplacer les "+types[ti].frames.length+" vignette(s) de \""+types[ti].name
+              +"\" par celles de \""+types[k].name+"\" ?")) return;
+  types[ti].frames = types[k].frames.map(f=>Int8Array.from(f));
+  types[ti].speed = types[k].speed;
+  types[ti].loop = types[k].loop;
+  fi = 0; stop(); drawAll();
+};
+document.getElementById("tAdd").onclick = ()=>{
+  types.push(newType("type"+types.length)); ti=types.length-1; fi=0; stop(); drawAll();
+};
+document.getElementById("tDel").onclick = ()=>{
+  if(types.length<=1){ alert("Il faut au moins un type."); return; }
+  if(!confirm("Supprimer le type \""+types[ti].name+"\" ?")) return;
+  types.splice(ti,1); ti=Math.max(0,ti-1); fi=0; stop(); drawAll();
+};
+
+document.getElementById("fAdd").onclick = ()=>{
+  types[ti].frames.push(newFrame()); fi=types[ti].frames.length-1; drawAll();
+};
+document.getElementById("fDup").onclick = ()=>{
+  types[ti].frames.splice(fi+1,0,types[ti].frames[fi].slice()); fi++; drawAll();
+};
+document.getElementById("fDel").onclick = ()=>{
+  if(types[ti].frames.length<=1){ alert("Il faut au moins une vignette."); return; }
+  types[ti].frames.splice(fi,1); fi=Math.max(0,fi-1); drawAll();
+};
+document.getElementById("fClear").onclick = ()=>{
+  types[ti].frames[fi].fill(TRANS); drawEdit(); drawFrames(); drawPrev();
+};
+document.getElementById("fCopy").onclick  = ()=>{ clip = types[ti].frames[fi].slice(); };
+document.getElementById("fPaste").onclick = ()=>{
+  if(!clip) return;
+  if(clip.length!==NPIX()){ alert("Taille de sprite differente : collage impossible."); return; }
+  types[ti].frames[fi].set(clip); drawEdit(); drawFrames(); drawPrev();
+};
+function flipFrame(fr){
+  const wpx = W*SEG, out = new Int8Array(fr.length);
+  for(let y=0;y<H;y++) for(let x=0;x<wpx;x++) out[y*wpx+x] = fr[y*wpx+(wpx-1-x)];
+  return out;
+}
+document.getElementById("fFlip").onclick = ()=>{
+  types[ti].frames[fi] = flipFrame(types[ti].frames[fi]); drawEdit(); drawFrames(); drawPrev();
+};
+/* toutes les vignettes du type : pour remettre dans le bon sens une
+   animation dessinee tournee vers la gauche */
+document.getElementById("fFlipAll").onclick = ()=>{
+  types[ti].frames = types[ti].frames.map(flipFrame); drawEdit(); drawFrames(); drawPrev();
+};
+
+/* changement de hauteur : on conserve ce qui tient dans la nouvelle taille.
+   La largeur, elle, ne change plus (voir la constante W). */
+function resize(nH){
+  const wpx = W*SEG;
+  types.forEach(t=>{
+    t.frames = t.frames.map(fr=>{
+      const a = new Int8Array(wpx*nH); a.fill(TRANS);
+      for(let y=0;y<Math.min(H,nH);y++)
+        for(let x=0;x<wpx;x++)
+          a[y*wpx+x] = fr[y*wpx+x];
+      return a;
+    });
+  });
+  H=nH; clip=null; drawAll();
+}
+document.getElementById("sH").onchange = e=>{
+  const v = Math.max(4,Math.min(24,+e.target.value||10));
+  e.target.value = v; resize(v);
+};
+
+/* ---------- apercu anime ---------- */
+function stop(){ playing=false; clearInterval(playTimer); document.getElementById("pPlay").textContent="Lecture"; }
+document.getElementById("pPlay").onclick = ()=>{
+  if(playing){ stop(); drawPrev(); return; }
+  playing=true; playFrame=0;
+  document.getElementById("pPlay").textContent="Arret";
+  /* la vitesse est exprimee en images de jeu ; l'apercu suppose 50 Hz,
+     ce qui n'est qu'une approximation du rythme reel de la machine */
+  playTimer = setInterval(()=>{
+    playFrame++;
+    const t = types[ti];
+    if(!t.loop && playFrame>=t.frames.length){ playFrame=t.frames.length-1; stop(); }
+    drawPrev();
+  }, types[ti].speed*20);
+};
+
+/* ---------- export asm ---------- */
+function hx(n){ return "$"+(n&0xFF).toString(16).toUpperCase().padStart(2,"0"); }
+
+/* Une ligne de vignette -> par segment : M, B, G, R.
+   masque a 1 = pixel opaque du sprite ; a 0 = le fond reste visible. */
+function frameBytes(fr){
+  const wpx = W*SEG, out = [];
+  for(let y=0;y<H;y++){
+    for(let s=0;s<W;s++){
+      let M=0,B=0,G=0,R=0;
+      for(let k=0;k<SEG;k++){
+        const v = fr[y*wpx + s*SEG + k], bit = 0x80>>k;
+        if(v===TRANS) continue;                    // masque reste a 0
+        M |= bit;
+        if(v&4) B|=bit;
+        if(v&2) G|=bit;
+        if(v&1) R|=bit;
+      }
+      out.push(M,B,G,R);
+    }
+  }
+  return out;                                      // H * W * 4 octets
+}
+
+function genAsm(){
+  const p = (document.getElementById("xPrefix").value||"lem").replace(/[^A-Za-z0-9_]/g,"");
+  const P = p.toUpperCase();
+  const L = [];
+  L.push("; ============================================================================");
+  L.push("; Genere par EXELLEM -- ne pas editer a la main.");
+  L.push(";");
+  L.push("; Sprites transparents, format du moteur bitmap EXL100 :");
+  L.push(";   en-tete  : wseg, hblock");
+  L.push(";   donnees  : par ligne, puis par segment de 8 px : M, B, G, R");
+  L.push(";   rendu    : dst = (fond & ~M) | (sprite & M), plan par plan");
+  L.push("; Masque a 1 = pixel du sprite ; a 0 = le decor reste visible.");
+  L.push("; Plans B/G/R dans cet ordre (manuel TMS3556) ; bit 7 = pixel gauche.");
+  L.push("; ============================================================================");
+  L.push("");
+  L.push(P+"_NTYPES      .equ    "+types.length);
+  L.push(P+"_WSEG        .equ    "+W+"        ; "+(W*SEG)+" pixels de large");
+  L.push(P+"_HLINES      .equ    "+H);
+  L.push(P+"_FRAME_BYTES .equ    "+(H*W*4)+"       ; HLINES*WSEG*4, en-tete non comprise");
+  L.push("");
+
+  types.forEach((t,i)=>{
+    L.push("; --- type "+i+" : "+(t.name||"sans nom")+" -----------------------------------");
+    t.frames.forEach((fr,j)=>{
+      const b = frameBytes(fr);
+      L.push(p+"_t"+i+"_f"+j+":");
+      L.push("        .byte   "+W+","+H+"        ; wseg, hblock");
+      for(let y=0;y<H;y++){
+        const row = b.slice(y*W*4,(y+1)*W*4);
+        L.push("        .byte   "+row.map(hx).join(",")+"   ; ligne "+y);
+      }
+    });
+    L.push("");
+  });
+
+  L.push("; --- definitions de type ---------------------------------------------------");
+  L.push("; nb de vignettes, vitesse, boucle (1) ou une seule fois (0)");
+  types.forEach((t,i)=>{
+    L.push(p+"_def"+i+":");
+    L.push("        .byte   "+t.frames.length+","+t.speed+","+(t.loop?1:0)
+           +"     ; "+(t.name||"?"));
+  });
+  L.push("");
+  L.push("; --- tables d'acces, poids fort puis poids faible --------------------------");
+  types.forEach((t,i)=>{
+    L.push(p+"_frames"+i+"_hi:");
+    L.push("        .byte   "+t.frames.map((_,j)=>p+"_t"+i+"_f"+j+">>8").join(","));
+    L.push(p+"_frames"+i+"_lo:");
+    L.push("        .byte   "+t.frames.map((_,j)=>p+"_t"+i+"_f"+j+"&$FF").join(","));
+  });
+  L.push("");
+
+  /* Table A PLAT, indexee par (type * MAXFRAMES + vignette). Les tables par
+     type ci-dessus obligeraient a une double indirection pour choisir le
+     sprite selon l'etat du lemming ; ici un seul MPY suffit. Les types
+     ayant moins de vignettes que le maximum sont completes en repetant la
+     derniere, pour qu'un index trop grand ne sorte jamais de la table. */
+  const maxf = Math.max(...types.map(t=>t.frames.length));
+  L.push("; --- table a plat : index = type*LEM_MAXFRAMES + vignette -------------------");
+  L.push(P+"_MAXFRAMES   .equ    "+maxf);
+  const flat = [];
+  types.forEach((t,i)=>{
+    for(let j=0;j<maxf;j++){
+      const k = Math.min(j, t.frames.length-1);   // completion par repetition
+      flat.push(p+"_t"+i+"_f"+k);
+    }
+  });
+  L.push(p+"_fr_hi:");
+  for(let i=0;i<flat.length;i+=maxf)
+    L.push("        .byte   "+flat.slice(i,i+maxf).map(x=>x+">>8").join(",")
+           +"   ; type "+(i/maxf)+" : "+(types[i/maxf].name||"?"));
+  L.push(p+"_fr_lo:");
+  for(let i=0;i<flat.length;i+=maxf)
+    L.push("        .byte   "+flat.slice(i,i+maxf).map(x=>x+"&$FF").join(","));
+  L.push("");
+  L.push("; nombre REEL de vignettes par type (pour boucler l'animation)");
+  L.push(p+"_nframes:");
+  L.push("        .byte   "+types.map(t=>t.frames.length).join(","));
+  L.push("");
+  L.push(p+"_def_hi:");
+  L.push("        .byte   "+types.map((_,i)=>p+"_def"+i+">>8").join(","));
+  L.push(p+"_def_lo:");
+  L.push("        .byte   "+types.map((_,i)=>p+"_def"+i+"&$FF").join(","));
+  L.push("");
+  return L.join("\n");
+}
+document.getElementById("xGen").onclick = ()=>{ document.getElementById("out").value = genAsm(); };
+document.getElementById("xCopy").onclick = ()=>{
+  const t = document.getElementById("out");
+  if(!t.value) t.value = genAsm();
+  t.select(); document.execCommand("copy");
+};
+/* Telechargement direct : fichier destine a #include, pas au copier-coller
+   dans le source principal -- on peut ainsi redessiner les sprites sans
+   retoucher le programme. */
+document.getElementById("xDl").onclick = ()=>{
+  const txt = genAsm();
+  document.getElementById("out").value = txt;
+  const b = new Blob([txt],{type:"text/plain"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(b); a.download = "lemdata.asm"; a.click();
+};
+
+/* ---------- projet json ---------- */
+document.getElementById("xSaveJ").onclick = ()=>{
+  const data = {
+    v:1, wseg:W, hlines:H,
+    types: types.map(t=>({name:t.name,speed:t.speed,loop:t.loop,
+                          frames:t.frames.map(f=>Array.from(f))}))
+  };
+  const b = new Blob([JSON.stringify(data)],{type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(b); a.download = "lemmings.json"; a.click();
+};
+document.getElementById("xLoadJ").onclick = ()=> document.getElementById("fJson").click();
+document.getElementById("fJson").onchange = e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    try{
+      const d = JSON.parse(r.result);
+      if(!d.types || !d.types.length) throw new Error("aucun type dans le fichier");
+      /* La largeur est desormais figee : un projet enregistre en 16 px
+         n'est plus compatible, mieux vaut le dire que de le charger a
+         moitie. */
+      if((d.wseg||1) !== W)
+        throw new Error("ce projet a des sprites de "+((d.wseg||1)*SEG)
+                        +" px de large ; l'editeur ne gere plus que "+(W*SEG)+" px");
+      H = d.hlines||10;
+      types = d.types.map(t=>({
+        name:t.name||"", speed:t.speed||6, loop:t.loop!==false,
+        frames:(t.frames||[]).map(a=>Int8Array.from(a))
+      }));
+      types.forEach(t=>{ if(!t.frames.length) t.frames=[newFrame()]; });
+      /* Types ajoutes depuis l'enregistrement de ce projet (grimpe, mine...) :
+         le jeu les attend a des numeros FIXES (etat = numero de type). On
+         complete donc avec les types par defaut manquants, a la fin, sans
+         toucher a ceux du projet. */
+      const loaded = types;
+      seed();
+      const defaults = types;
+      types = loaded;
+      const added = [];
+      for(let i=loaded.length;i<defaults.length;i++){
+        const v = WALK_VARIANTS.find(([n])=>n===defaults[i].name);
+        // variantes du marcheur : construites a partir de VOTRE marcheur
+        types.push(v ? makeWalkVariant(types[0], v[0], v[1]) : defaults[i]);
+        added.push(defaults[i].name);
+      }
+      if(added.length) alert("Types ajoutes (sprites par defaut, a retoucher si besoin) : "+added.join(", "));
+      ti=0; fi=0; clip=null; stop();
+      document.getElementById("sH").value = H;
+      drawAll();
+    }catch(err){ alert("Fichier illisible : "+err.message); }
+  };
+  r.readAsText(f);
+};
+
+/* ---------- demarrage ---------- */
+seed();
+buildPal(); drawAll();
+</script>
+</body>
+</html>
