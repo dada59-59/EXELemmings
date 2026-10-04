@@ -1,4 +1,4 @@
-# Lemmings pour Exelvision EXL100 / EXELTEL
+# Lemmings pour Exelvision EXL100 / EXELTEL  version BETA, en cours
 
 Clone de *Lemmings* écrit en assembleur **TMS7020** pour les ordinateurs
 Exelvision EXL100 et EXELTEL. Le jeu tourne en mode mixte texte + bitmap
