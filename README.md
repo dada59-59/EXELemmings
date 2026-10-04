@@ -5,7 +5,7 @@ Exelvision EXL100 et EXELTEL. Le jeu tourne en mode mixte texte + bitmap
 320×200 du VDP TMS3556, et s'accompagne de deux éditeurs web :
 **EXELTILE** pour les niveaux, **EXELLEM** pour les sprites.
 
-
+![game screen](https://raw.githubusercontent.com/dada59-59/EXELemmings/refs/heads/main/EXLemmings.png)
 
 ## Fonctionnalités
 
